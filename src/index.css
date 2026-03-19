@@ -1,0 +1,166 @@
+@tailwind base;
+@tailwind components;
+@tailwind utilities;
+
+html,
+body,
+#root {
+  height: 100%;
+}
+
+body {
+  @apply bg-canvas text-ink font-sans antialiased;
+}
+
+/* Subtle canvas texture background */
+body::before {
+  content: '';
+  position: fixed;
+  inset: 0;
+  pointer-events: none;
+  background-image:
+    radial-gradient(circle at 10% 20%, rgba(0, 0, 0, 0.03) 0, transparent 55%),
+    radial-gradient(circle at 90% 80%, rgba(0, 0, 0, 0.025) 0, transparent 60%),
+    radial-gradient(circle at 50% 50%, rgba(255, 255, 255, 0.5) 0, transparent 65%);
+  mix-blend-mode: multiply;
+  opacity: 0.9;
+  z-index: -1;
+}
+
+.glass-card {
+  @apply bg-white/85 backdrop-blur-xl border border-white/70 shadow-soft-card rounded-3xl;
+}
+
+.pill {
+  @apply rounded-full border border-white/70 bg-white/60 px-3 py-1 text-xs font-medium uppercase tracking-[0.18em] text-slate-500;
+}
+
+/* Paint-like swatches & controls */
+.paint-swatch {
+  @apply rounded-2xl border border-white/80 bg-white/80 shadow-md;
+}
+
+.paint-chip {
+  @apply rounded-full border border-white/80 shadow-md;
+}
+
+.paint-button {
+  @apply rounded-full shadow-md border border-white/80 bg-white/90 hover:-translate-y-0.5 transition-transform;
+}
+
+/* Slider styling for pigment ratio control */
+input[type='range'] {
+  -webkit-appearance: none;
+  appearance: none;
+  width: 100%;
+  height: 0.5rem;
+  border-radius: 9999px;
+  background: linear-gradient(to right, #e5e7eb, #cbd5f5);
+  outline: none;
+}
+
+input[type='range']::-webkit-slider-thumb {
+  -webkit-appearance: none;
+  appearance: none;
+  width: 18px;
+  height: 18px;
+  border-radius: 9999px;
+  background: radial-gradient(circle at 30% 30%, #fef3c7 0, #f97373 45%, #1d4ed8 100%);
+  box-shadow: 0 6px 14px rgba(15, 23, 42, 0.35);
+  border: 2px solid rgba(255, 255, 255, 0.9);
+  cursor: pointer;
+}
+
+input[type='range']::-moz-range-thumb {
+  width: 18px;
+  height: 18px;
+  border-radius: 9999px;
+  background: radial-gradient(circle at 30% 30%, #fef3c7 0, #f97373 45%, #1d4ed8 100%);
+  box-shadow: 0 6px 14px rgba(15, 23, 42, 0.35);
+  border: 2px solid rgba(255, 255, 255, 0.9);
+  cursor: pointer;
+}
+
+input[type='range']::-moz-range-track {
+  height: 0.5rem;
+  border-radius: 9999px;
+  background: linear-gradient(to right, #e5e7eb, #cbd5f5);
+}
+
+/* Mixing animation - droplets converge and blend */
+@keyframes dropletMix {
+  0% {
+    left: var(--start-x, 50%);
+    top: var(--start-y, 50%);
+    transform: translate(-50%, -50%) scale(1);
+    opacity: 1;
+  }
+  50% {
+    left: 50%;
+    top: 50%;
+    transform: translate(-50%, -50%) scale(1.2);
+    opacity: 0.95;
+  }
+  100% {
+    left: 50%;
+    top: 50%;
+    transform: translate(-50%, -50%) scale(0);
+    opacity: 0;
+  }
+}
+
+.animate-droplet-mix {
+  animation: dropletMix 2.2s cubic-bezier(0.25, 0.46, 0.45, 0.94) forwards;
+}
+
+@keyframes blendIn {
+  0% {
+    transform: translate(-50%, -50%) scale(0);
+    opacity: 0.4;
+  }
+  50% {
+    transform: translate(-50%, -50%) scale(1.1);
+    opacity: 0.9;
+  }
+  100% {
+    transform: translate(-50%, -50%) scale(1);
+    opacity: 1;
+  }
+}
+
+.animate-blend-in {
+  animation: blendIn 1.4s cubic-bezier(0.34, 1.56, 0.64, 1) 0.8s forwards;
+}
+
+@keyframes fadeIn {
+  from { opacity: 0; }
+  to { opacity: 1; }
+}
+
+.animate-fadeIn {
+  animation: fadeIn 0.2s ease-out forwards;
+}
+
+/* Smooth scrollbar for color library */
+.color-library-scroll {
+  scrollbar-width: thin;
+  scrollbar-color: #cbd5e1 #f1f5f9;
+}
+
+.color-library-scroll::-webkit-scrollbar {
+  width: 8px;
+}
+
+.color-library-scroll::-webkit-scrollbar-track {
+  background: #f1f5f9;
+  border-radius: 9999px;
+}
+
+.color-library-scroll::-webkit-scrollbar-thumb {
+  background: #cbd5e1;
+  border-radius: 9999px;
+}
+
+.color-library-scroll::-webkit-scrollbar-thumb:hover {
+  background: #94a3b8;
+}

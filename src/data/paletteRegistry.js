@@ -1,0 +1,92 @@
+// Palette registry for brand-specific color sets.
+// Add new paint/pencil sets by appending an object to PALETTE_REGISTRY.
+
+export const FABER_CASTELL_ALBRECHT_DURER_72 = {
+  id: 'faber-castell-albrecht-durer-72',
+  brand: 'Faber-Castell',
+  name: 'Albrecht Durer 72',
+  medium: 'colored-pencil',
+  colors: [
+    { name: 'White', hex: '#F8F8F4' },
+    { name: 'Cream', hex: '#F2E6B4' },
+    { name: 'Ivory', hex: '#F0E1B5' },
+    { name: 'Light Yellow Glaze', hex: '#F6E88E' },
+    { name: 'Light Cadmium Yellow', hex: '#F7DC5F' },
+    { name: 'Dark Chrome Yellow', hex: '#D8A626' },
+    { name: 'Cadmium Yellow', hex: '#EAC23C' },
+    { name: 'Dark Cadmium Yellow', hex: '#C5931A' },
+    { name: 'Naples Yellow', hex: '#E6CE8C' },
+    { name: 'Dark Naples Ochre', hex: '#B48A42' },
+    { name: 'Earth Yellowish', hex: '#A8873E' },
+    { name: 'Orange Glaze', hex: '#E27B3A' },
+    { name: 'Dark Cadmium Orange', hex: '#C9672A' },
+    { name: 'Dark Cadmium Red', hex: '#A93E2F' },
+    { name: 'Scarlet Red', hex: '#D34C42' },
+    { name: 'Light Cadmium Red', hex: '#E06D57' },
+    { name: 'Medium Cadmium Red', hex: '#C85042' },
+    { name: 'Deep Scarlet Red', hex: '#B5443A' },
+    { name: 'Carmine Red', hex: '#B3354E' },
+    { name: 'Alizarin Crimson', hex: '#8E2D42' },
+    { name: 'Crimson', hex: '#A73448' },
+    { name: 'Magenta', hex: '#B5416B' },
+    { name: 'Purple Pink', hex: '#C86893' },
+    { name: 'Light Magenta', hex: '#D38AAA' },
+    { name: 'Middle Purple Pink', hex: '#B97BA2' },
+    { name: 'Pink Carmine', hex: '#AF5D84' },
+    { name: 'Rose Carmine', hex: '#8D4069' },
+    { name: 'Violet', hex: '#6F4B8A' },
+    { name: 'Manganese Violet', hex: '#7D5A8C' },
+    { name: 'Red Violet', hex: '#7A4479' },
+    { name: 'Blue Violet', hex: '#5E4A87' },
+    { name: 'Ultramarine', hex: '#3E4C9F' },
+    { name: 'Light Ultramarine', hex: '#6B7BC6' },
+    { name: 'Cobalt Blue', hex: '#3B62A4' },
+    { name: 'Prussian Blue', hex: '#284B75' },
+    { name: 'Phthalo Blue', hex: '#2A4A8E' },
+    { name: 'Phthalo Blue Middle', hex: '#3F66A9' },
+    { name: 'Delft Blue', hex: '#38527E' },
+    { name: 'Dark Indigo', hex: '#29344F' },
+    { name: 'Helio Blue Reddish', hex: '#30458D' },
+    { name: 'Cobalt Turquoise', hex: '#2C8FA0' },
+    { name: 'Turquoise', hex: '#3A9FA0' },
+    { name: 'Light Cobalt Turquoise', hex: '#6DAEB2' },
+    { name: 'Light Blue', hex: '#8FC0D4' },
+    { name: 'Sky Blue', hex: '#76AFD0' },
+    { name: 'Ice Blue', hex: '#B2D6E2' },
+    { name: 'Light Phthalo Green', hex: '#89C6A1' },
+    { name: 'Phthalo Green', hex: '#3A8C69' },
+    { name: 'Emerald Green', hex: '#4E9B5F' },
+    { name: 'Cobalt Green', hex: '#5D8E6A' },
+    { name: 'Light Green', hex: '#97B96B' },
+    { name: 'May Green', hex: '#8AA858' },
+    { name: 'Leaf Green', hex: '#6D8B45' },
+    { name: 'Permanent Green', hex: '#4F7A3E' },
+    { name: 'Chromium Oxide Green', hex: '#4B5E3A' },
+    { name: 'Olive Green Yellowish', hex: '#7B7A43' },
+    { name: 'Olive Green', hex: '#66663A' },
+    { name: 'Earth Green Yellowish', hex: '#7E7E59' },
+    { name: 'Earth Green', hex: '#61705C' },
+    { name: 'Raw Umber', hex: '#6A5642' },
+    { name: 'Burnt Umber', hex: '#5A4031' },
+    { name: 'Burnt Ochre', hex: '#9D6B41' },
+    { name: 'Brown Ochre', hex: '#8D6441' },
+    { name: 'Burnt Sienna', hex: '#9E5D45' },
+    { name: 'Walnut Brown', hex: '#5A4435' },
+    { name: 'Sepia', hex: '#4D3B30' },
+    { name: 'Bistre', hex: '#5E4A3A' },
+    { name: 'Warm Grey I', hex: '#C8C0B5' },
+    { name: 'Warm Grey IV', hex: '#9A9289' },
+    { name: 'Warm Grey V', hex: '#827A71' },
+    { name: 'Cold Grey I', hex: '#CBD1D3' },
+    { name: 'Cold Grey IV', hex: '#8E969C' }
+  ]
+};
+
+export const PALETTE_REGISTRY = [
+  FABER_CASTELL_ALBRECHT_DURER_72
+];
+
+export const DEFAULT_NEAREST_PALETTE_ORDER = [
+  FABER_CASTELL_ALBRECHT_DURER_72.id
+];
+
