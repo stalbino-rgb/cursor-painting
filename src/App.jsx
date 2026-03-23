@@ -230,7 +230,7 @@ function App() {
                       Target Color
                     </p>
                     <div className="rounded-2xl bg-slate-900/70 border border-slate-800 overflow-hidden">
-                      <div className="h-24 w-full" style={{ backgroundColor: baseMix.targetHex }} />
+                      <div className="h-36 w-full" style={{ backgroundColor: baseMix.targetHex }} />
                       <div className="px-3 py-2.5 flex items-center justify-between text-[11px] text-slate-300">
                         <span>선택한 색</span>
                         <code className="font-mono">{baseMix.targetHex.toUpperCase()}</code>
@@ -244,7 +244,7 @@ function App() {
                       Mixed Result
                     </p>
                     <div className="rounded-2xl bg-slate-900/70 border border-slate-800 overflow-hidden">
-                      <div className="h-24 w-full relative" style={{ backgroundColor: adjustedHex }}>
+                      <div className="h-36 w-full relative" style={{ backgroundColor: adjustedHex }}>
                         <div
                           className="absolute inset-0 opacity-25 mix-blend-soft-light"
                           style={{
@@ -265,7 +265,7 @@ function App() {
 
                 {/* bar comparison */}
                 <div className="flex items-center gap-3 mb-4">
-                  <div className="flex-1 h-1.5 rounded-full overflow-hidden bg-slate-800">
+                  <div className="flex-1 h-2.5 rounded-full overflow-hidden bg-slate-800">
                     <div
                       className="h-full"
                       style={{

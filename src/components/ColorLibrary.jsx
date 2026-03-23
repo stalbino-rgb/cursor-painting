@@ -66,7 +66,13 @@ function ColorLibrary({ onColorSelect }) {
     const q = searchQuery.trim().toLowerCase();
     let list = [...mergedLibrary];
     if (munsellFilter !== 'all') {
-      list = list.filter((c) => (hexToApproxMunsell(c.hex)?.major ?? 'all') === munsellFilter);
+      list = list.filter((c) => {
+        const m = hexToApproxMunsell(c.hex);
+        if (!m) return false;
+        // Avoid showing broad neutral/gray tones in hue filters.
+        if (m.chroma < 2) return false;
+        return m.major === munsellFilter;
+      });
     }
     if (q) {
       const match = (c) => {
@@ -241,7 +247,7 @@ function ColorLibrary({ onColorSelect }) {
       <div className="relative flex">
         <div
           ref={listRef}
-          className="flex-1 max-h-[460px] overflow-y-auto overscroll-contain scroll-smooth color-library-scroll"
+          className="flex-1 max-h-[230px] overflow-y-auto overscroll-contain scroll-smooth color-library-scroll"
         >
           {displayList.length === 0 && !externalLoading ? (
             <div className="px-4 py-8 text-center text-xs text-slate-500">

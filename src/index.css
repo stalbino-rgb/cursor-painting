@@ -10,6 +10,7 @@ body,
 
 body {
   @apply bg-canvas text-ink font-sans antialiased;
+  -webkit-text-size-adjust: 100%;
 }
 
 /* Subtle canvas texture background */
@@ -163,4 +164,15 @@ input[type='range']::-moz-range-track {
 
 .color-library-scroll::-webkit-scrollbar-thumb:hover {
   background: #94a3b8;
+}
+
+/* Mobile safe area for iPhone notch/home indicator */
+.safe-area-bottom {
+  padding-bottom: max(0.75rem, env(safe-area-inset-bottom));
+}
+
+@supports (padding: max(0px)) {
+  .safe-area-top {
+    padding-top: max(0.75rem, env(safe-area-inset-top));
+  }
 }
