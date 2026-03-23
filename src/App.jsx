@@ -14,6 +14,7 @@ function formatPercent(v) {
 function App() {
   const [hex, setHex] = useState('#f97373');
   const [adjustments, setAdjustments] = useState({});
+  const [waterAmount, setWaterAmount] = useState(0);
   const [recipeName, setRecipeName] = useState('');
   const [savedRecipes, setSavedRecipes] = useState([]);
   const [selectedLibraryColor, setSelectedLibraryColor] = useState(null);
@@ -22,13 +23,19 @@ function App() {
 
   const adjustedMix = useMemo(() => {
     if (!baseMix || !baseMix.parts?.length) return null;
-    const ratioByKey = {};
+    const baseRatioMap = {};
     baseMix.parts.forEach((p) => {
-      const factor = adjustments[p.key] ?? 1;
-      ratioByKey[p.key] = p.ratio * factor;
+      baseRatioMap[p.key] = p.ratio;
     });
+    const ratioByKey = {};
+    PIGMENT_LIST.forEach((p) => {
+      if (p.key === 'water') return;
+      const factor = adjustments[p.key] ?? 1;
+      ratioByKey[p.key] = (baseRatioMap[p.key] || 0) * factor;
+    });
+    ratioByKey.water = waterAmount / 100;
     return mixFromPigmentRatios(ratioByKey);
-  }, [baseMix, adjustments]);
+  }, [baseMix, adjustments, waterAmount]);
 
   const partsToShow = adjustedMix?.parts?.length ? adjustedMix.parts : baseMix.parts;
   const adjustedHex = adjustedMix?.hex ?? baseMix.approximateHex;
@@ -219,7 +226,7 @@ function App() {
                       Target Color
                     </p>
                     <div className="rounded-2xl bg-slate-900/70 border border-slate-800 overflow-hidden">
-                      <div className="h-36 w-full" style={{ backgroundColor: baseMix.targetHex }} />
+                      <div className="h-20 w-full" style={{ backgroundColor: baseMix.targetHex }} />
                       <div className="px-3 py-2.5 flex items-center justify-between text-[11px] text-slate-300">
                         <span>선택한 색</span>
                         <code className="font-mono">{baseMix.targetHex.toUpperCase()}</code>
@@ -233,7 +240,7 @@ function App() {
                       Mixed Result
                     </p>
                     <div className="rounded-2xl bg-slate-900/70 border border-slate-800 overflow-hidden">
-                      <div className="h-36 w-full relative" style={{ backgroundColor: adjustedHex }}>
+                      <div className="h-20 w-full relative" style={{ backgroundColor: adjustedHex }}>
                         <div
                           className="absolute inset-0 opacity-25 mix-blend-soft-light"
                           style={{
@@ -310,9 +317,9 @@ function App() {
                           시뮬레이션해 보세요. (기본값 100%)
                         </p>
                         <div className="space-y-3">
-                          {baseMix.parts.map((p) => {
+                          {PIGMENT_LIST.map((p) => {
                             const factor = adjustments[p.key] ?? 1;
-                            const current = adjustedPartsByKey[p.key]?.ratio ?? p.ratio;
+                            const current = adjustedPartsByKey[p.key]?.ratio ?? 0;
                             return (
                               <div key={p.key} className="space-y-1.5">
                                 <div className="flex items-center justify-between text-[11px] text-slate-300">
@@ -324,9 +331,15 @@ function App() {
                                     <span className="font-medium text-slate-100">{p.name}</span>
                                   </div>
                                   <div className="flex items-center gap-2">
-                                    <span className="text-slate-400">
-                                      조정: {(factor * 100).toFixed(0)}%
-                                    </span>
+                                    {p.key === 'water' ? (
+                                      <span className="text-slate-400">
+                                        물 추가: {waterAmount.toFixed(0)}%
+                                      </span>
+                                    ) : (
+                                      <span className="text-slate-400">
+                                        조정: {(factor * 100).toFixed(0)}%
+                                      </span>
+                                    )}
                                     <span className="text-slate-400">
                                       현재 비율: {formatPercent(current)}
                                     </span>
@@ -334,12 +347,16 @@ function App() {
                                 </div>
                                 <input
                                   type="range"
-                                  min={50}
-                                  max={150}
-                                  value={Math.round(factor * 100)}
-                                  onChange={(e) =>
-                                    handleChangePigmentFactor(p.key, Number(e.target.value))
-                                  }
+                                  min={p.key === 'water' ? 0 : 50}
+                                  max={p.key === 'water' ? 100 : 150}
+                                  value={p.key === 'water' ? Math.round(waterAmount) : Math.round(factor * 100)}
+                                  onChange={(e) => {
+                                    if (p.key === 'water') {
+                                      setWaterAmount(Number(e.target.value));
+                                      return;
+                                    }
+                                    handleChangePigmentFactor(p.key, Number(e.target.value));
+                                  }}
                                 />
                               </div>
                             );

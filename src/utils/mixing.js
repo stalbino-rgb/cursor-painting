@@ -3,6 +3,7 @@
 // constrained least-squares problem for (R, Y, B, W, K).
 
 const BASE_PIGMENTS = {
+  water: { name: '워터', key: 'water', cmy: [0, 0, 0], hex: '#EAF6FF' },
   red: { name: '레드', key: 'red', cmy: [0.1, 0.85, 0.8], hex: '#D7263D' },
   yellow: { name: '옐로우', key: 'yellow', cmy: [0.05, 0.1, 0.85], hex: '#F6C035' },
   blue: { name: '블루', key: 'blue', cmy: [0.9, 0.7, 0.1], hex: '#225CAD' },
@@ -11,12 +12,15 @@ const BASE_PIGMENTS = {
 };
 
 export const PIGMENT_LIST = [
+  BASE_PIGMENTS.water,
   BASE_PIGMENTS.red,
   BASE_PIGMENTS.yellow,
   BASE_PIGMENTS.blue,
   BASE_PIGMENTS.white,
   BASE_PIGMENTS.black
 ];
+
+const MIXABLE_PIGMENTS = PIGMENT_LIST.filter((p) => p.key !== 'water');
 
 export function hexToRgb(hex) {
   const h = hex.replace('#', '');
@@ -43,13 +47,54 @@ function cmyToRgb(cmy) {
   return cmy.map((v) => 1 - v);
 }
 
+function rgbToHsv([r, g, b]) {
+  const max = Math.max(r, g, b);
+  const min = Math.min(r, g, b);
+  const d = max - min;
+  let h = 0;
+  if (d !== 0) {
+    if (max === r) h = ((g - b) / d + (g < b ? 6 : 0)) * 60;
+    else if (max === g) h = ((b - r) / d + 2) * 60;
+    else h = ((r - g) / d + 4) * 60;
+  }
+  const s = max === 0 ? 0 : d / max;
+  const v = max;
+  return { h, s, v };
+}
+
+function hsvToRgb(h, s, v) {
+  const hh = ((h % 360) + 360) % 360;
+  const c = v * s;
+  const x = c * (1 - Math.abs(((hh / 60) % 2) - 1));
+  const m = v - c;
+  let rp = 0;
+  let gp = 0;
+  let bp = 0;
+  if (hh < 60) [rp, gp, bp] = [c, x, 0];
+  else if (hh < 120) [rp, gp, bp] = [x, c, 0];
+  else if (hh < 180) [rp, gp, bp] = [0, c, x];
+  else if (hh < 240) [rp, gp, bp] = [0, x, c];
+  else if (hh < 300) [rp, gp, bp] = [x, 0, c];
+  else [rp, gp, bp] = [c, 0, x];
+  return [rp + m, gp + m, bp + m];
+}
+
+function applyWaterDilution(rgb, waterRatio) {
+  const t = Math.min(1, Math.max(0, waterRatio));
+  const withWhite = rgb.map((c) => c * (1 - t * 0.85) + 1 * (t * 0.85));
+  const hsv = rgbToHsv(withWhite);
+  const dilutedSat = Math.max(0, hsv.s * (1 - t * 0.7));
+  const liftedVal = Math.min(1, hsv.v + t * 0.1);
+  return hsvToRgb(hsv.h, dilutedSat, liftedVal);
+}
+
 // Solve non‑negative least squares for weights of 5 pigments.
 // We keep it simple with a projected gradient descent.
 export function calculateMixForHex(hex) {
   const rgbTarget = hexToRgb(hex);
   const target = rgbToCmy(rgbTarget); // go to subtractive-ish space
 
-  const pigments = PIGMENT_LIST.map((p) => p.cmy);
+  const pigments = MIXABLE_PIGMENTS.map((p) => p.cmy);
   const m = pigments.length;
 
   let w = new Array(m).fill(1 / m);
@@ -92,7 +137,7 @@ export function calculateMixForHex(hex) {
 
   const resultHex = rgbToHex(finalRgb);
 
-  const parts = PIGMENT_LIST.map((p, idx) => ({
+  const parts = MIXABLE_PIGMENTS.map((p, idx) => ({
     ...p,
     ratio: w[idx]
   })).filter((p) => p.ratio > 0.01);
@@ -116,10 +161,14 @@ export function mixFromPigmentRatios(ratioByKey) {
   }
 
   const total = entries.reduce((sum, [, r]) => sum + r, 0) || 1;
-  const weights = entries.map(([key, r]) => [key, r / total]);
+  const waterRaw = ratioByKey?.water || 0;
+  const waterRatio = waterRaw > 0 ? waterRaw / total : 0;
+
+  const nonWaterEntries = entries.filter(([key]) => key !== 'water');
+  const nonWaterTotal = nonWaterEntries.reduce((sum, [, r]) => sum + r, 0) || 1;
+  const weights = nonWaterEntries.map(([key, r]) => [key, r / nonWaterTotal]);
 
   const mixCmy = [0, 0, 0];
-  const parts = [];
 
   for (const [key, w] of weights) {
     const pigment = BASE_PIGMENTS[key];
@@ -127,14 +176,22 @@ export function mixFromPigmentRatios(ratioByKey) {
     mixCmy[0] += w * pigment.cmy[0];
     mixCmy[1] += w * pigment.cmy[1];
     mixCmy[2] += w * pigment.cmy[2];
-    parts.push({
-      ...pigment,
-      ratio: w
-    });
   }
 
-  const rgb = cmyToRgb(mixCmy);
+  const baseRgb = nonWaterEntries.length ? cmyToRgb(mixCmy) : [1, 1, 1];
+  const rgb = applyWaterDilution(baseRgb, waterRatio);
   const hex = rgbToHex(rgb);
+
+  const parts = entries
+    .map(([key, raw]) => {
+      const pigment = BASE_PIGMENTS[key];
+      if (!pigment) return null;
+      return {
+        ...pigment,
+        ratio: raw / total
+      };
+    })
+    .filter(Boolean);
 
   return {
     hex,

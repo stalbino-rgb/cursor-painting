@@ -247,14 +247,14 @@ function ColorLibrary({ onColorSelect }) {
       <div className="relative flex">
         <div
           ref={listRef}
-          className="flex-1 max-h-[115px] overflow-y-auto overscroll-contain scroll-smooth color-library-scroll"
+          className="flex-1 max-h-[300px] overflow-y-auto overscroll-contain scroll-smooth color-library-scroll"
         >
           {displayList.length === 0 && !externalLoading ? (
             <div className="px-4 py-8 text-center text-xs text-slate-500">
               {searchQuery.trim() ? '검색 결과가 없습니다.' : '색상이 없습니다.'}
             </div>
           ) : (
-            <div className="grid grid-cols-7 lg:grid-cols-8 gap-1 px-2 py-1.5">
+            <div className="grid grid-cols-4 gap-1 px-2 py-1.5">
               {displayList.map((color, i) => (
                 <button
                   key={`${color.hex}-${color.name}-${i}`}
@@ -281,7 +281,7 @@ function ColorLibrary({ onColorSelect }) {
 
         {/* Alphabet index */}
         {!isFromExternal && displayList.length > 0 && (
-          <div className="flex flex-col items-center py-2 pr-2 gap-px border-l border-slate-100">
+          <div className="h-[300px] flex flex-col items-center justify-between py-2 pr-2 gap-px border-l border-slate-100">
             {ALPHABET.map((letter) => {
               const hasLetter = alphabetIndex[letter] != null;
               return (
