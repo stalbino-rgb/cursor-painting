@@ -1,0 +1,18 @@
+{
+  "name": "아크릴 조색 가이드",
+  "short_name": "조색 가이드",
+  "description": "색상 선택, 조색 비율 계산, 라이브러리 기반 믹싱 시뮬레이션 앱",
+  "start_url": "/",
+  "display": "standalone",
+  "background_color": "#F9F9F9",
+  "theme_color": "#F9F9F9",
+  "lang": "ko",
+  "icons": [
+    {
+      "src": "/pwa-icon.svg",
+      "sizes": "any",
+      "type": "image/svg+xml",
+      "purpose": "any maskable"
+    }
+  ]
+}
