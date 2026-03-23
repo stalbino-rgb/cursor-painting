@@ -1,22 +1,11 @@
 import React, { useMemo, useState } from 'react';
 import { Droplets, Palette, Wand2, Info, Save } from 'lucide-react';
 import { calculateMixForHex, PIGMENT_LIST, mixFromPigmentRatios } from './utils/mixing';
+import { SWATCHES } from './data/colorData';
 import PhotoToPalette from './components/PhotoToPalette';
 import MixingAnimation from './components/MixingAnimation';
 import ColorLibrary from './components/ColorLibrary';
 import ColorDetailModal from './components/ColorDetailModal';
-
-const SWATCHES = [
-  '#F6C035',
-  '#D7263D',
-  '#225CAD',
-  '#F97373',
-  '#A3E635',
-  '#2DD4BF',
-  '#F472B6',
-  '#FACCFF',
-  '#0F172A'
-];
 
 function formatPercent(v) {
   return `${(v * 100).toFixed(0)}%`;
@@ -265,7 +254,7 @@ function App() {
 
                 {/* bar comparison */}
                 <div className="flex items-center gap-3 mb-4">
-                  <div className="flex-1 h-2.5 rounded-full overflow-hidden bg-slate-800">
+                  <div className="flex-1 h-4 rounded-full overflow-hidden bg-slate-800">
                     <div
                       className="h-full"
                       style={{

@@ -1,7 +1,7 @@
 import React, { useMemo, useState, useRef, useCallback } from 'react';
 import { BookOpen, Search, ChevronDown, Loader2 } from 'lucide-react';
 import { COLOR_LIBRARY } from '../data/colorLibrary';
-import { FABER_CASTELL_ALBRECHT_DURER_72 } from '../data/paletteRegistry';
+import { FABER_CASTELL_ALBRECHT_DURER_72 } from '../data/colorData';
 import { sortBySimilarColor, sortByAlpha } from '../utils/colorUtils';
 import { hexToApproxMunsell, formatMunsellNotation } from '../utils/munsell';
 
@@ -152,7 +152,7 @@ function ColorLibrary({ onColorSelect }) {
 
   return (
     <div className="rounded-3xl bg-white/95 border border-slate-100/80 shadow-md overflow-hidden">
-      <div className="px-4 py-4 border-b border-slate-100 bg-slate-50/50 space-y-4">
+      <div className="px-3 py-2 border-b border-slate-100 bg-slate-50/50 space-y-2">
         <div className="flex items-center gap-2">
           <div className="h-8 w-8 rounded-full bg-gradient-to-br from-slate-200 to-slate-300 flex items-center justify-center shadow-sm">
             <BookOpen size={16} className="text-slate-600" />
@@ -161,7 +161,7 @@ function ColorLibrary({ onColorSelect }) {
             <p className="text-xs font-semibold tracking-[0.2em] text-slate-500 uppercase">
               Color Library
             </p>
-            <p className="text-[11px] text-slate-500">
+            <p className="text-[10px] text-slate-500">
               {mergedLibrary.length}가지 이상 · 클릭 시 조색 상세 화면
             </p>
           </div>
@@ -175,7 +175,7 @@ function ColorLibrary({ onColorSelect }) {
             value={searchQuery}
             onChange={(e) => handleSearch(e.target.value)}
             placeholder="색상 이름 검색 (예: Cerulean Blue)"
-            className="w-full pl-9 pr-4 py-2.5 rounded-xl border border-slate-200 bg-white text-sm text-slate-700 placeholder:text-slate-400 focus:outline-none focus:ring-2 focus:ring-sky-200 focus:border-transparent"
+            className="w-full pl-9 pr-4 py-2 rounded-xl border border-slate-200 bg-white text-xs text-slate-700 placeholder:text-slate-400 focus:outline-none focus:ring-2 focus:ring-sky-200 focus:border-transparent"
           />
           {externalLoading && (
             <div className="absolute right-3 top-1/2 -translate-y-1/2 flex items-center gap-2 text-[11px] text-slate-500">
@@ -247,14 +247,14 @@ function ColorLibrary({ onColorSelect }) {
       <div className="relative flex">
         <div
           ref={listRef}
-          className="flex-1 max-h-[230px] overflow-y-auto overscroll-contain scroll-smooth color-library-scroll"
+          className="flex-1 max-h-[115px] overflow-y-auto overscroll-contain scroll-smooth color-library-scroll"
         >
           {displayList.length === 0 && !externalLoading ? (
             <div className="px-4 py-8 text-center text-xs text-slate-500">
               {searchQuery.trim() ? '검색 결과가 없습니다.' : '색상이 없습니다.'}
             </div>
           ) : (
-            <div className="grid grid-cols-1 md:grid-cols-2 gap-x-4 gap-y-0.5 px-3 py-2">
+            <div className="grid grid-cols-7 lg:grid-cols-8 gap-1 px-2 py-1.5">
               {displayList.map((color, i) => (
                 <button
                   key={`${color.hex}-${color.name}-${i}`}
@@ -263,38 +263,16 @@ function ColorLibrary({ onColorSelect }) {
                     rowRefs.current[`row-${i}`] = el;
                   }}
                   onClick={() => onColorSelect?.(color)}
-                  className="group flex items-center gap-2 py-2 px-2 rounded-lg hover:bg-slate-50/90 active:bg-slate-100/90 text-left transition-colors"
+                  className="group flex flex-col items-center justify-center p-1 rounded-lg hover:bg-slate-50/90 active:bg-slate-100/90 text-left transition-colors"
+                  title={`${color.name} (${(normalizeHex(color.hex) || color.hex).toUpperCase()})`}
                 >
                   <div
-                    className="w-8 h-8 shrink-0 rounded-full border border-white/80 shadow-sm"
+                    className="w-5 h-5 shrink-0 rounded-md border border-white/80 shadow-sm"
                     style={{ backgroundColor: color.hex }}
                   />
-                  <div className="min-w-0 flex-1">
-                    <div className="flex items-center gap-2">
-                      <span className="text-xs font-medium text-slate-700 group-hover:text-slate-900 truncate">
-                        {color.name}
-                        {color.koName ? (
-                          <span className="text-[11px] font-normal text-slate-400"> {' / '}{color.koName}</span>
-                        ) : null}
-                      </span>
-                      {color.source === 'external' && (
-                        <span className="shrink-0 text-[9px] text-sky-600">외부</span>
-                      )}
-                    </div>
-                    <div className="mt-0.5 flex items-center gap-2">
-                      <code className="shrink-0 text-[10px] font-mono text-slate-500 group-hover:text-slate-600">
-                        {(normalizeHex(color.hex) || color.hex).slice(0, 7)}
-                      </code>
-                      {!isFromExternal && (
-                        <code className="text-[10px] font-mono text-slate-400">
-                          {(() => {
-                            const m = hexToApproxMunsell(color.hex);
-                            return m ? formatMunsellNotation(m) : '';
-                          })()}
-                        </code>
-                      )}
-                    </div>
-                  </div>
+                  <code className="mt-0.5 text-[8px] font-mono text-slate-500 group-hover:text-slate-600">
+                    {(normalizeHex(color.hex) || color.hex).slice(0, 4)}
+                  </code>
                 </button>
               ))}
             </div>

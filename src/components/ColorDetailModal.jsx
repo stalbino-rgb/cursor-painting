@@ -2,7 +2,7 @@ import React, { useMemo } from 'react';
 import { X } from 'lucide-react';
 import { calculateMixFromLibrary } from '../utils/mixing';
 import { MIXING_PALETTE } from '../data/colorLibrary';
-import { DEFAULT_NEAREST_PALETTE_ORDER, PALETTE_REGISTRY } from '../data/paletteRegistry';
+import { DEFAULT_NEAREST_PALETTE_ORDER, PALETTE_REGISTRY } from '../data/colorData';
 import { collectNearestPaletteCandidates } from '../utils/paletteMatching';
 import MixingAnimation from './MixingAnimation';
 
