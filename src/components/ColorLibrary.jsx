@@ -247,14 +247,14 @@ function ColorLibrary({ onColorSelect }) {
       <div className="relative flex">
         <div
           ref={listRef}
-          className="flex-1 max-h-[300px] overflow-y-auto overscroll-contain scroll-smooth color-library-scroll"
+          className="flex-1 max-h-[620px] overflow-y-auto overscroll-contain scroll-smooth color-library-scroll"
         >
           {displayList.length === 0 && !externalLoading ? (
             <div className="px-4 py-8 text-center text-xs text-slate-500">
               {searchQuery.trim() ? '검색 결과가 없습니다.' : '색상이 없습니다.'}
             </div>
           ) : (
-            <div className="grid grid-cols-4 gap-1 px-2 py-1.5">
+            <div className="grid grid-cols-4 gap-2 px-2 py-2">
               {displayList.map((color, i) => (
                 <button
                   key={`${color.hex}-${color.name}-${i}`}
@@ -263,15 +263,15 @@ function ColorLibrary({ onColorSelect }) {
                     rowRefs.current[`row-${i}`] = el;
                   }}
                   onClick={() => onColorSelect?.(color)}
-                  className="group flex flex-col items-center justify-center p-1 rounded-lg hover:bg-slate-50/90 active:bg-slate-100/90 text-left transition-colors"
+                  className="group flex flex-col items-center justify-center p-2 rounded-lg hover:bg-slate-50/90 active:bg-slate-100/90 text-left transition-colors"
                   title={`${color.name} (${(normalizeHex(color.hex) || color.hex).toUpperCase()})`}
                 >
                   <div
-                    className="w-5 h-5 shrink-0 rounded-md border border-white/80 shadow-sm"
+                    className="w-8 h-8 shrink-0 rounded-lg border border-white/80 shadow-sm"
                     style={{ backgroundColor: color.hex }}
                   />
-                  <code className="mt-0.5 text-[8px] font-mono text-slate-500 group-hover:text-slate-600">
-                    {(normalizeHex(color.hex) || color.hex).slice(0, 4)}
+                  <code className="mt-1 text-[9px] font-mono text-slate-500 group-hover:text-slate-600">
+                    {(normalizeHex(color.hex) || color.hex).slice(0, 7)}
                   </code>
                 </button>
               ))}
@@ -281,7 +281,7 @@ function ColorLibrary({ onColorSelect }) {
 
         {/* Alphabet index */}
         {!isFromExternal && displayList.length > 0 && (
-          <div className="h-[300px] flex flex-col items-center justify-between py-2 pr-2 gap-px border-l border-slate-100">
+          <div className="h-[620px] flex flex-col items-center justify-between py-2 pr-2 gap-px border-l border-slate-100">
             {ALPHABET.map((letter) => {
               const hasLetter = alphabetIndex[letter] != null;
               return (
