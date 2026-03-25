@@ -90,7 +90,7 @@ export const FABER_CASTELL_ALBRECHT_DURER_72 = {
     { name: 'Warm Grey V', hex: '#827A71' },
     { name: 'Cold Grey I', hex: '#CBD1D3' },
     { name: 'Cold Grey IV', hex: '#8E969C' }
-  ]
+  ].map((c, idx) => ({ ...c, no: idx + 1 }))
 };
 
 export const PALETTE_REGISTRY = [FABER_CASTELL_ALBRECHT_DURER_72];

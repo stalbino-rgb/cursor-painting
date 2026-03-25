@@ -6,6 +6,7 @@ import PhotoToPalette from './components/PhotoToPalette';
 import MixingAnimation from './components/MixingAnimation';
 import ColorLibrary from './components/ColorLibrary';
 import ColorDetailModal from './components/ColorDetailModal';
+import FaberMixModal from './components/FaberMixModal';
 
 function formatPercent(v) {
   return `${(v * 100).toFixed(0)}%`;
@@ -13,6 +14,8 @@ function formatPercent(v) {
 
 function App() {
   const [hex, setHex] = useState('#f97373');
+  const [mixMode, setMixMode] = useState('default'); // 'default' | 'faber'
+  const [faberModalOpen, setFaberModalOpen] = useState(false);
   const [adjustments, setAdjustments] = useState({});
   const [waterAmount, setWaterAmount] = useState(0);
   const [recipeName, setRecipeName] = useState('');
@@ -131,12 +134,52 @@ function App() {
                   </div>
                 </div>
 
+                {/* mixing mode toggle */}
+                <div className="mb-4">
+                  <div className="inline-flex rounded-full bg-white/80 border border-slate-200 p-1 shadow-sm">
+                    <button
+                      type="button"
+                      onClick={() => {
+                        setMixMode('default');
+                        setFaberModalOpen(false);
+                      }}
+                      className={`px-3 py-1.5 text-[11px] font-medium rounded-full transition-colors ${
+                        mixMode === 'default'
+                          ? 'bg-slate-900 text-white'
+                          : 'text-slate-600 hover:text-slate-800'
+                      }`}
+                    >
+                      기본색 조색 (Default)
+                    </button>
+                    <button
+                      type="button"
+                      onClick={() => setMixMode('faber')}
+                      className={`px-3 py-1.5 text-[11px] font-medium rounded-full transition-colors ${
+                        mixMode === 'faber'
+                          ? 'bg-slate-900 text-white'
+                          : 'text-slate-600 hover:text-slate-800'
+                      }`}
+                    >
+                      파버카스텔 조색
+                    </button>
+                  </div>
+                  {mixMode === 'faber' && (
+                    <p className="mt-2 text-[11px] text-slate-500">
+                      목표색을 선택하면 먼저 Faber 72에서 가장 가까운 색과 추천 조합 팝업이 뜹니다.
+                    </p>
+                  )}
+                </div>
+
                 <div className="flex flex-col sm:flex-row gap-4 items-stretch">
                   <label className="flex-1 flex items-center justify-center paint-swatch shadow-inner cursor-pointer">
                     <input
                       type="color"
                       value={hex}
-                      onChange={(e) => setHex(e.target.value)}
+                      onChange={(e) => {
+                        const v = e.target.value;
+                        setHex(v);
+                        if (mixMode === 'faber') setFaberModalOpen(true);
+                      }}
                       className="h-20 w-full rounded-2xl border-0 bg-transparent cursor-pointer appearance-none p-0"
                       aria-label="목표 색상 선택"
                     />
@@ -154,7 +197,10 @@ function App() {
                         <button
                           key={c}
                           type="button"
-                          onClick={() => setHex(c)}
+                          onClick={() => {
+                            setHex(c);
+                            if (mixMode === 'faber') setFaberModalOpen(true);
+                          }}
                           className="h-7 w-full paint-chip transition-transform"
                           style={{ backgroundColor: c }}
                           aria-label={`추천 색상 ${c}`}
@@ -166,7 +212,12 @@ function App() {
               </div>
 
               {/* photo to palette */}
-              <PhotoToPalette onColorPick={setHex} />
+              <PhotoToPalette
+                onColorPick={(picked) => {
+                  setHex(picked);
+                  if (mixMode === 'faber') setFaberModalOpen(true);
+                }}
+              />
 
               {/* pigments legend */}
               <div className="rounded-3xl bg-white/90 border border-slate-100/80 p-4 md:p-5 shadow-md">
@@ -485,6 +536,19 @@ function App() {
         color={selectedLibraryColor}
         onClose={() => setSelectedLibraryColor(null)}
         onApplyToTarget={setHex}
+      />
+
+      {/* faber workflow modal */}
+      <FaberMixModal
+        open={mixMode === 'faber' && faberModalOpen}
+        targetHex={hex}
+        onClose={() => setFaberModalOpen(false)}
+        onApplyNearestAsTarget={(nearest) => {
+          if (!nearest?.hex) return;
+          setMixMode('default');
+          setFaberModalOpen(false);
+          setHex(nearest.hex);
+        }}
       />
     </div>
   );

@@ -7,7 +7,8 @@ import { hexToApproxMunsell, formatMunsellNotation } from '../utils/munsell';
 
 const SORT_OPTIONS = [
   { id: 'similar', label: '비슷한 색상순' },
-  { id: 'alpha', label: '알파벳 이름순 (A-Z)' }
+  { id: 'alpha', label: '알파벳 이름순 (A-Z)' },
+  { id: 'faberNo', label: 'Faber-Castell No.순' }
 ];
 
 const ALPHABET = 'ABCDEFGHIJKLMNOPQRSTUVWXYZ'.split('');
@@ -88,6 +89,18 @@ function ColorLibrary({ onColorSelect }) {
       list = [...exact, ...partial];
     }
     if (sortBy === 'alpha') return sortByAlpha(list);
+    if (sortBy === 'faberNo') {
+      const faberName = FABER_CASTELL_ALBRECHT_DURER_72.name;
+      return [...list].sort((a, b) => {
+        const aIs = a.source === faberName || a.paletteId === FABER_CASTELL_ALBRECHT_DURER_72.id || a.brand === 'Faber-Castell';
+        const bIs = b.source === faberName || b.paletteId === FABER_CASTELL_ALBRECHT_DURER_72.id || b.brand === 'Faber-Castell';
+        if (aIs !== bIs) return aIs ? -1 : 1;
+        const an = typeof a.no === 'number' ? a.no : Number.POSITIVE_INFINITY;
+        const bn = typeof b.no === 'number' ? b.no : Number.POSITIVE_INFINITY;
+        if (an !== bn) return an - bn;
+        return (a.name || '').localeCompare(b.name || '', 'en');
+      });
+    }
     return sortBySimilarColor(list);
   }, [searchQuery, sortBy, munsellFilter, mergedLibrary]);
 
