@@ -42,12 +42,14 @@ function ColorLibrary({ onColorSelect }) {
   const rowRefs = useRef({});
   const searchTimeoutRef = useRef(null);
   const [munsellFilter, setMunsellFilter] = useState('all');
+  const [showSet72Only, setShowSet72Only] = useState(false);
 
   const mergedLibrary = useMemo(() => {
     const merged = [
       ...FABER_CASTELL_ALBRECHT_DURER_72.colors.map((color) => ({
         ...color,
-        source: FABER_CASTELL_ALBRECHT_DURER_72.name
+        source: FABER_CASTELL_ALBRECHT_DURER_72.name,
+        brand: FABER_CASTELL_ALBRECHT_DURER_72.brand
       })),
       ...COLOR_LIBRARY
     ];
@@ -66,6 +68,12 @@ function ColorLibrary({ onColorSelect }) {
   const filteredAndSorted = useMemo(() => {
     const q = searchQuery.trim().toLowerCase();
     let list = [...mergedLibrary];
+    if (showSet72Only) {
+      const faberName = FABER_CASTELL_ALBRECHT_DURER_72.name;
+      list = list.filter(
+        (c) => (c.source === faberName || c.brand === 'Faber-Castell') && c.isSet72
+      );
+    }
     if (munsellFilter !== 'all') {
       list = list.filter((c) => {
         const m = hexToApproxMunsell(c.hex);
@@ -102,7 +110,7 @@ function ColorLibrary({ onColorSelect }) {
       });
     }
     return sortBySimilarColor(list);
-  }, [searchQuery, sortBy, munsellFilter, mergedLibrary]);
+  }, [searchQuery, sortBy, munsellFilter, mergedLibrary, showSet72Only]);
 
   const displayList = useMemo(() => {
     if (externalResults.length > 0) return externalResults;
@@ -162,6 +170,7 @@ function ColorLibrary({ onColorSelect }) {
   };
 
   const isFromExternal = externalResults.length > 0;
+  const faberSourceName = FABER_CASTELL_ALBRECHT_DURER_72.name;
 
   return (
     <div className="rounded-3xl bg-white/95 border border-slate-100/80 shadow-md overflow-hidden">
@@ -254,6 +263,25 @@ function ColorLibrary({ onColorSelect }) {
               <option value="RP">RP</option>
             </select>
           </div>
+
+          <div className="flex items-center gap-2">
+            <span className="text-[11px] text-slate-500">표시:</span>
+            <button
+              type="button"
+              disabled={isFromExternal}
+              onClick={() => setShowSet72Only((v) => !v)}
+              className={`px-2.5 py-1.5 rounded-lg border text-xs font-medium transition-colors ${
+                isFromExternal
+                  ? 'border-slate-200 bg-slate-50 text-slate-300 cursor-not-allowed'
+                  : showSet72Only
+                    ? 'border-slate-900 bg-slate-900 text-white'
+                    : 'border-slate-200 bg-white text-slate-700 hover:bg-slate-50'
+              }`}
+              title={isFromExternal ? '외부 검색 결과에서는 사용할 수 없어요.' : 'Faber 72 배지 색상만 표시'}
+            >
+              72만 보기
+            </button>
+          </div>
         </div>
       </div>
 
@@ -269,6 +297,11 @@ function ColorLibrary({ onColorSelect }) {
           ) : (
             <div className="grid grid-cols-4 gap-2 px-2 py-2">
               {displayList.map((color, i) => (
+                (() => {
+                  const isFaber = color.source === faberSourceName || color.brand === 'Faber-Castell';
+                  const isSet72 = Boolean(color.isSet72);
+                  const tileClass = isFaber && !isSet72 ? 'opacity-55' : '';
+                  return (
                 <button
                   key={`${color.hex}-${color.name}-${i}`}
                   type="button"
@@ -276,17 +309,26 @@ function ColorLibrary({ onColorSelect }) {
                     rowRefs.current[`row-${i}`] = el;
                   }}
                   onClick={() => onColorSelect?.(color)}
-                  className="group flex flex-col items-center justify-center p-2 rounded-lg hover:bg-slate-50/90 active:bg-slate-100/90 text-left transition-colors"
+                  className={`group flex flex-col items-center justify-center p-2 rounded-lg hover:bg-slate-50/90 active:bg-slate-100/90 text-left transition-colors ${tileClass}`}
                   title={`${color.name} (${(normalizeHex(color.hex) || color.hex).toUpperCase()})`}
                 >
-                  <div
-                    className="w-8 h-8 shrink-0 rounded-lg border border-white/80 shadow-sm"
-                    style={{ backgroundColor: color.hex }}
-                  />
+                  <div className="relative">
+                    <div
+                      className="w-8 h-8 shrink-0 rounded-lg border border-white/80 shadow-sm"
+                      style={{ backgroundColor: color.hex }}
+                    />
+                    {isFaber && isSet72 && (
+                      <span className="absolute -right-1 -top-1 rounded-full bg-slate-900 text-white text-[9px] font-semibold px-1.5 py-0.5 shadow-sm">
+                        72
+                      </span>
+                    )}
+                  </div>
                   <code className="mt-1 text-[9px] font-mono text-slate-500 group-hover:text-slate-600">
                     {(normalizeHex(color.hex) || color.hex).slice(0, 7)}
                   </code>
                 </button>
+                  );
+                })()
               ))}
             </div>
           )}

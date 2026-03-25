@@ -245,6 +245,7 @@ export function calculateMixFromLibrary(targetHex, colorList, minRatio = 0.01) {
     parts.push({
       name: colors[i].name,
       hex: colors[i].hex,
+      no: colors[i].no,
       key: `lib-${i}`,
       ratio: w[i]
     });

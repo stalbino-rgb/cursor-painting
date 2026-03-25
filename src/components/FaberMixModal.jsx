@@ -18,15 +18,23 @@ function normalizeHex(hex) {
 }
 
 function FaberMixModal({ targetHex, open, onClose, onApplyNearestAsTarget }) {
+  const set72Colors = useMemo(
+    () => FABER_CASTELL_ALBRECHT_DURER_72.colors.filter((c) => c.isSet72),
+    []
+  );
+
   const nearest = useMemo(
-    () => (targetHex ? getNearestColorInPalette(targetHex, FABER_CASTELL_ALBRECHT_DURER_72) : null),
-    [targetHex]
+    () =>
+      targetHex
+        ? getNearestColorInPalette(targetHex, { ...FABER_CASTELL_ALBRECHT_DURER_72, colors: set72Colors })
+        : null,
+    [targetHex, set72Colors]
   );
 
   const mix = useMemo(() => {
     if (!targetHex) return null;
     const t = normalizeHex(targetHex);
-    const exact = FABER_CASTELL_ALBRECHT_DURER_72.colors.find((c) => normalizeHex(c.hex) === t);
+    const exact = set72Colors.find((c) => normalizeHex(c.hex) === t);
     if (exact) {
       return {
         approximateHex: exact.hex,
@@ -41,14 +49,14 @@ function FaberMixModal({ targetHex, open, onClose, onApplyNearestAsTarget }) {
         ]
       };
     }
-    const list = FABER_CASTELL_ALBRECHT_DURER_72.colors.map((c) => ({
+    const list = set72Colors.map((c) => ({
       name: c.name,
       hex: c.hex,
       no: c.no,
       key: `faber-${c.no}`
     }));
     return calculateMixFromLibrary(targetHex, list, 0.03);
-  }, [targetHex]);
+  }, [targetHex, set72Colors]);
 
   const parts = mix?.parts ?? [];
   const hasMix = parts.length > 0;
