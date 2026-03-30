@@ -1,3 +1,5 @@
+import { normalizeHexColor } from './hexNormalize';
+
 // Simple subtractive-style mixing model using a CMY-ish space.
 // We approximate pigments as CMY triplets and solve a small
 // constrained least-squares problem for (R, Y, B, W, K).
@@ -23,8 +25,11 @@ export const PIGMENT_LIST = [
 const MIXABLE_PIGMENTS = PIGMENT_LIST.filter((p) => p.key !== 'water');
 
 export function hexToRgb(hex) {
-  const h = hex.replace('#', '');
-  const bigint = parseInt(h.length === 3 ? h.split('').map((c) => c + c).join('') : h, 16);
+  const full = normalizeHexColor(hex).replace('#', '');
+  const h = full.length === 3 ? full.split('').map((c) => c + c).join('') : full;
+  if (h.length !== 6) return [0, 0, 0];
+  const bigint = parseInt(h, 16);
+  if (Number.isNaN(bigint)) return [0, 0, 0];
   const r = (bigint >> 16) & 255;
   const g = (bigint >> 8) & 255;
   const b = bigint & 255;
@@ -91,7 +96,8 @@ function applyWaterDilution(rgb, waterRatio) {
 // Solve non‑negative least squares for weights of 5 pigments.
 // We keep it simple with a projected gradient descent.
 export function calculateMixForHex(hex) {
-  const rgbTarget = hexToRgb(hex);
+  const safeHex = normalizeHexColor(hex);
+  const rgbTarget = hexToRgb(safeHex);
   const target = rgbToCmy(rgbTarget); // go to subtractive-ish space
 
   const pigments = MIXABLE_PIGMENTS.map((p) => p.cmy);
@@ -143,7 +149,7 @@ export function calculateMixForHex(hex) {
   })).filter((p) => p.ratio > 0.01);
 
   return {
-    targetHex: hex,
+    targetHex: safeHex,
     approximateHex: resultHex,
     parts
   };
@@ -202,9 +208,10 @@ export function mixFromPigmentRatios(ratioByKey) {
 // Mix from an arbitrary list of colors (e.g. library colors) using CMY-based NNLS.
 // Returns { approximateHex, parts: [{ name, hex, ratio }] }.
 export function calculateMixFromLibrary(targetHex, colorList, minRatio = 0.01) {
-  if (!colorList?.length) return { approximateHex: targetHex, parts: [] };
+  const safeTarget = normalizeHexColor(targetHex);
+  if (!colorList?.length) return { approximateHex: safeTarget, parts: [] };
 
-  const rgbTarget = hexToRgb(targetHex);
+  const rgbTarget = hexToRgb(safeTarget);
   const target = rgbToCmy(rgbTarget);
 
   const colors = colorList.map((c) => ({
@@ -246,8 +253,9 @@ export function calculateMixFromLibrary(targetHex, colorList, minRatio = 0.01) {
       name: colors[i].name,
       hex: colors[i].hex,
       no: colors[i].no,
-      key: `lib-${i}`,
-      ratio: w[i]
+      key: colors[i].key ?? `lib-${i}`,
+      ratio: w[i],
+      isCaran30: colors[i].isCaran30
     });
   }
 

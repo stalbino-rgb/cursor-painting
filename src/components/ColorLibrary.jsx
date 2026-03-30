@@ -1,14 +1,14 @@
 import React, { useMemo, useState, useRef, useCallback } from 'react';
 import { BookOpen, Search, ChevronDown, Loader2 } from 'lucide-react';
 import { COLOR_LIBRARY } from '../data/colorLibrary';
-import { FABER_CASTELL_ALBRECHT_DURER_72 } from '../data/colorData';
+import { CARAN_NEOCOLOR_II_30, FABER_CASTELL_ALBRECHT_DURER_72 } from '../data/colorData';
 import { sortBySimilarColor, sortByAlpha } from '../utils/colorUtils';
 import { hexToApproxMunsell, formatMunsellNotation } from '../utils/munsell';
 
 const SORT_OPTIONS = [
   { id: 'similar', label: '비슷한 색상순' },
   { id: 'alpha', label: '알파벳 이름순 (A-Z)' },
-  { id: 'faberNo', label: 'Faber-Castell No.순' }
+  { id: 'faberNo', label: '브랜드 No.순 (Faber·Caran)' }
 ];
 
 const ALPHABET = 'ABCDEFGHIJKLMNOPQRSTUVWXYZ'.split('');
@@ -42,10 +42,15 @@ function ColorLibrary({ onColorSelect }) {
   const rowRefs = useRef({});
   const searchTimeoutRef = useRef(null);
   const [munsellFilter, setMunsellFilter] = useState('all');
-  const [showSet72Only, setShowSet72Only] = useState(false);
+  const [showOwnedSetsOnly, setShowOwnedSetsOnly] = useState(false);
 
   const mergedLibrary = useMemo(() => {
     const merged = [
+      ...CARAN_NEOCOLOR_II_30.colors.map((color) => ({
+        ...color,
+        source: CARAN_NEOCOLOR_II_30.name,
+        brand: CARAN_NEOCOLOR_II_30.brand
+      })),
       ...FABER_CASTELL_ALBRECHT_DURER_72.colors.map((color) => ({
         ...color,
         source: FABER_CASTELL_ALBRECHT_DURER_72.name,
@@ -56,7 +61,7 @@ function ColorLibrary({ onColorSelect }) {
     const unique = [];
     const seen = new Set();
     for (const item of merged) {
-      const key = `${item.name}|${item.hex}`.toLowerCase();
+      const key = `${item.source || ''}|${item.name}|${item.hex}`.toLowerCase();
       if (!seen.has(key)) {
         seen.add(key);
         unique.push(item);
@@ -68,11 +73,8 @@ function ColorLibrary({ onColorSelect }) {
   const filteredAndSorted = useMemo(() => {
     const q = searchQuery.trim().toLowerCase();
     let list = [...mergedLibrary];
-    if (showSet72Only) {
-      const faberName = FABER_CASTELL_ALBRECHT_DURER_72.name;
-      list = list.filter(
-        (c) => (c.source === faberName || c.brand === 'Faber-Castell') && c.isSet72
-      );
+    if (showOwnedSetsOnly) {
+      list = list.filter((c) => Boolean(c.isSet72) || Boolean(c.isSet30));
     }
     if (munsellFilter !== 'all') {
       list = list.filter((c) => {
@@ -99,18 +101,28 @@ function ColorLibrary({ onColorSelect }) {
     if (sortBy === 'alpha') return sortByAlpha(list);
     if (sortBy === 'faberNo') {
       const faberName = FABER_CASTELL_ALBRECHT_DURER_72.name;
+      const caranName = CARAN_NEOCOLOR_II_30.name;
       return [...list].sort((a, b) => {
-        const aIs = a.source === faberName || a.paletteId === FABER_CASTELL_ALBRECHT_DURER_72.id || a.brand === 'Faber-Castell';
-        const bIs = b.source === faberName || b.paletteId === FABER_CASTELL_ALBRECHT_DURER_72.id || b.brand === 'Faber-Castell';
-        if (aIs !== bIs) return aIs ? -1 : 1;
-        const an = typeof a.no === 'number' ? a.no : Number.POSITIVE_INFINITY;
-        const bn = typeof b.no === 'number' ? b.no : Number.POSITIVE_INFINITY;
-        if (an !== bn) return an - bn;
+        const tier = (c) => {
+          if (c.source === faberName || c.paletteId === FABER_CASTELL_ALBRECHT_DURER_72.id || c.brand === 'Faber-Castell')
+            return 0;
+          if (c.source === caranName || c.paletteId === CARAN_NEOCOLOR_II_30.id || c.brand === "Caran d'Ache")
+            return 1;
+          return 2;
+        };
+        const ta = tier(a);
+        const tb = tier(b);
+        if (ta !== tb) return ta - tb;
+        if (ta <= 1) {
+          const an = typeof a.no === 'number' ? a.no : Number.POSITIVE_INFINITY;
+          const bn = typeof b.no === 'number' ? b.no : Number.POSITIVE_INFINITY;
+          if (an !== bn) return an - bn;
+        }
         return (a.name || '').localeCompare(b.name || '', 'en');
       });
     }
     return sortBySimilarColor(list);
-  }, [searchQuery, sortBy, munsellFilter, mergedLibrary, showSet72Only]);
+  }, [searchQuery, sortBy, munsellFilter, mergedLibrary, showOwnedSetsOnly]);
 
   const displayList = useMemo(() => {
     if (externalResults.length > 0) return externalResults;
@@ -171,6 +183,7 @@ function ColorLibrary({ onColorSelect }) {
 
   const isFromExternal = externalResults.length > 0;
   const faberSourceName = FABER_CASTELL_ALBRECHT_DURER_72.name;
+  const caranSourceName = CARAN_NEOCOLOR_II_30.name;
 
   return (
     <div className="rounded-3xl bg-white/95 border border-slate-100/80 shadow-md overflow-hidden">
@@ -269,17 +282,21 @@ function ColorLibrary({ onColorSelect }) {
             <button
               type="button"
               disabled={isFromExternal}
-              onClick={() => setShowSet72Only((v) => !v)}
+              onClick={() => setShowOwnedSetsOnly((v) => !v)}
               className={`px-2.5 py-1.5 rounded-lg border text-xs font-medium transition-colors ${
                 isFromExternal
                   ? 'border-slate-200 bg-slate-50 text-slate-300 cursor-not-allowed'
-                  : showSet72Only
+                  : showOwnedSetsOnly
                     ? 'border-slate-900 bg-slate-900 text-white'
                     : 'border-slate-200 bg-white text-slate-700 hover:bg-slate-50'
               }`}
-              title={isFromExternal ? '외부 검색 결과에서는 사용할 수 없어요.' : 'Faber 72 배지 색상만 표시'}
+              title={
+                isFromExternal
+                  ? '외부 검색 결과에서는 사용할 수 없어요.'
+                  : 'Faber 72 + Caran Neocolor II 30 (보유 세트만)'
+              }
             >
-              72만 보기
+              72+30만 보기
             </button>
           </div>
         </div>
@@ -299,11 +316,14 @@ function ColorLibrary({ onColorSelect }) {
               {displayList.map((color, i) => (
                 (() => {
                   const isFaber = color.source === faberSourceName || color.brand === 'Faber-Castell';
+                  const isCaran = color.source === caranSourceName || color.brand === "Caran d'Ache";
                   const isSet72 = Boolean(color.isSet72);
-                  const tileClass = isFaber && !isSet72 ? 'opacity-55' : '';
+                  const isSet30 = Boolean(color.isSet30);
+                  const tileClass =
+                    (isFaber && !isSet72) || (isCaran && color.isSet30 === false) ? 'opacity-55' : '';
                   return (
                 <button
-                  key={`${color.hex}-${color.name}-${i}`}
+                  key={`${color.source || ''}-${color.hex}-${color.name}-${i}`}
                   type="button"
                   ref={(el) => {
                     rowRefs.current[`row-${i}`] = el;
@@ -317,11 +337,18 @@ function ColorLibrary({ onColorSelect }) {
                       className="w-8 h-8 shrink-0 rounded-lg border border-white/80 shadow-sm"
                       style={{ backgroundColor: color.hex }}
                     />
-                    {isFaber && isSet72 && (
-                      <span className="absolute -right-1 -top-1 rounded-full bg-slate-900 text-white text-[9px] font-semibold px-1.5 py-0.5 shadow-sm">
-                        72
-                      </span>
-                    )}
+                    <div className="absolute -right-1 -top-1 flex flex-col gap-0.5 items-end">
+                      {isCaran && isSet30 && (
+                        <span className="rounded-full bg-amber-800 text-white text-[9px] font-semibold px-1.5 py-0.5 shadow-sm leading-none">
+                          30
+                        </span>
+                      )}
+                      {isFaber && isSet72 && (
+                        <span className="rounded-full bg-slate-900 text-white text-[9px] font-semibold px-1.5 py-0.5 shadow-sm leading-none">
+                          72
+                        </span>
+                      )}
+                    </div>
                   </div>
                   <code className="mt-1 text-[9px] font-mono text-slate-500 group-hover:text-slate-600">
                     {(normalizeHex(color.hex) || color.hex).slice(0, 7)}

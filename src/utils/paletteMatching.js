@@ -72,3 +72,33 @@ export function collectNearestPaletteCandidates(targetHex, options) {
   };
 }
 
+/** Squared RGB distance below this is treated as “similar” for brand tie-break. */
+const BRAND_TIE_DISTANCE_SQ = 1400;
+
+/**
+ * Nearest color across multiple palettes. If two colors are similarly close,
+ * Caran d'Ache is preferred (per product requirement).
+ */
+export function getNearestAcrossPalettesPreferCaran(targetHex, palettes) {
+  if (!targetHex || !palettes?.length) return null;
+  const entries = [];
+  for (const palette of palettes) {
+    for (const color of palette.colors || []) {
+      const d = distanceSq(targetHex, color.hex);
+      entries.push({
+        ...color,
+        paletteId: palette.id,
+        paletteName: palette.name,
+        paletteBrand: palette.brand,
+        distance: d
+      });
+    }
+  }
+  if (!entries.length) return null;
+  entries.sort((a, b) => a.distance - b.distance);
+  const bestD = entries[0].distance;
+  const close = entries.filter((e) => e.distance <= bestD + BRAND_TIE_DISTANCE_SQ);
+  const caran = close.find((e) => e.paletteBrand === "Caran d'Ache");
+  return caran || entries[0];
+}
+
