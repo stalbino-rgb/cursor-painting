@@ -9,6 +9,7 @@ import MixingPreview from './components/MixingPreview';
 import SaveRecipes from './components/SaveRecipes';
 import AppHeader from './components/AppHeader';
 import ColorPickerSection from './components/ColorPickerSection';
+import ColorWheel from './components/ColorWheel';
 import { normalizeHexColor } from './utils/hexNormalize';
 
 function formatPercent(v) {
@@ -94,7 +95,7 @@ function App() {
 
   return (
     <div className="min-h-screen flex items-center justify-center px-4 py-10">
-      <main className="glass-card max-w-6xl w-full px-8 py-8 md:px-12 md:py-10 relative overflow-hidden">
+      <main className="glass-card max-w-6xl w-full px-8 py-8 md:px-12 md:py-10 relative overflow-x-hidden overflow-y-visible">
         {/* floating paint drops */}
         <div className="pointer-events-none absolute -right-16 -top-16 h-52 w-52 rounded-full bg-gradient-to-br from-rose-200/70 via-amber-200/70 to-sky-200/70 blur-2xl opacity-70 animate-float-slow" />
         <div className="pointer-events-none absolute -left-10 bottom-0 h-40 w-40 rounded-full bg-gradient-to-tr from-sky-200/70 via-indigo-200/70 to-emerald-200/70 blur-2xl opacity-60 animate-float-slow" />
@@ -104,21 +105,26 @@ function App() {
 
           {/* main layout */}
           <section className="grid lg:grid-cols-[minmax(0,1.1fr)_minmax(0,1.1fr)] gap-8 lg:gap-10 items-start">
-            <ColorPickerSection
-              targetHex={targetHex}
-              renderKey={renderKey}
-              mixMode={mixMode}
-              setMixMode={setMixMode}
-              setFaberModalOpen={setFaberModalOpen}
-              handleColorUpdate={handleColorUpdate}
-              swatches={SWATCHES}
-              photoPickMode={photoPickMode}
-              setPhotoPickMode={setPhotoPickMode}
-              pigments={PIGMENT_LIST}
-            />
+            <div className="space-y-6 min-w-0">
+              <ColorPickerSection
+                targetHex={targetHex}
+                renderKey={renderKey}
+                mixMode={mixMode}
+                setMixMode={setMixMode}
+                setFaberModalOpen={setFaberModalOpen}
+                handleColorUpdate={handleColorUpdate}
+                swatches={SWATCHES}
+                photoPickMode={photoPickMode}
+                setPhotoPickMode={setPhotoPickMode}
+                pigments={PIGMENT_LIST}
+              />
+
+              {/* ColorWheel: directly under ColorPickerSection for visibility */}
+              <ColorWheel onSelectHex={handleColorUpdate} />
+            </div>
 
             {/* right: visual feedback */}
-            <div className="space-y-4">
+            <div className="space-y-4 min-w-0">
               {/* mixing animation palette */}
               <MixingAnimation parts={partsToShow} resultHex={adjustedHex} />
 

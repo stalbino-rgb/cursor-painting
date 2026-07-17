@@ -1,0 +1,86 @@
+[
+  {
+    "cat": "Y",
+    "label": "Yellow",
+    "outer": { "num": 8, "color": "Lemon Yellow" },
+    "mid": { "num": 9, "color": "Per. Yellow Middle" },
+    "inner": { "num": 10, "color": "Per. Yellow Deep" }
+  },
+  {
+    "cat": "YO",
+    "label": "Yellow Orange",
+    "outer": { "num": 12, "color": "Naples Yellow" },
+    "mid": { "num": 11, "color": "Yellow Ochre" },
+    "inner": { "num": null, "color": null }
+  },
+  {
+    "cat": "O",
+    "label": "Orange",
+    "outer": { "num": 3, "color": "Per. Orange" },
+    "mid": { "num": null, "color": null },
+    "inner": { "num": null, "color": null }
+  },
+  {
+    "cat": "OR",
+    "label": "Orange Red",
+    "outer": { "num": 4, "color": "Vermilion" },
+    "mid": { "num": 5, "color": "Coral Red" },
+    "inner": { "num": null, "color": null }
+  },
+  {
+    "cat": "R",
+    "label": "Red",
+    "outer": { "num": 2, "color": "Naphtol Red Light" },
+    "mid": { "num": null, "color": null },
+    "inner": { "num": null, "color": null }
+  },
+  {
+    "cat": "RV",
+    "label": "Red Violet",
+    "outer": { "num": 1, "color": "Carmine" },
+    "mid": { "num": 7, "color": "Magenta" },
+    "inner": { "num": 6, "color": "Medium Magenta" }
+  },
+  {
+    "cat": "V",
+    "label": "Violet",
+    "outer": { "num": 24, "color": "Violet" },
+    "mid": { "num": 25, "color": "Middle Violet" },
+    "inner": { "num": 26, "color": "Lilac" }
+  },
+  {
+    "cat": "VB",
+    "label": "Violet Blue",
+    "outer": { "num": 22, "color": "Ultramarine" },
+    "mid": { "num": 23, "color": "Cyanine Blue" },
+    "inner": { "num": null, "color": null }
+  },
+  {
+    "cat": "B",
+    "label": "Blue",
+    "outer": { "num": 20, "color": "Cerulean Blue" },
+    "mid": { "num": 21, "color": "Cobalt Blue" },
+    "inner": { "num": null, "color": null }
+  },
+  {
+    "cat": "BG",
+    "label": "Blue Green",
+    "outer": { "num": 19, "color": "Acqua Green" },
+    "mid": { "num": null, "color": null },
+    "inner": { "num": null, "color": null }
+  },
+  {
+    "cat": "G",
+    "label": "Green",
+    "outer": { "num": 14, "color": "Green Light" },
+    "mid": { "num": 15, "color": "Cyanine Green" },
+    "inner": { "num": 16, "color": "Emerald Green" }
+  },
+  {
+    "cat": "GY",
+    "label": "Green Yellow",
+    "outer": { "num": 17, "color": "Sap Green" },
+    "mid": { "num": 18, "color": "Olive Green" },
+    "inner": { "num": null, "color": null }
+  }
+]
