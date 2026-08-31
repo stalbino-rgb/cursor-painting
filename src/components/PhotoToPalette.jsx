@@ -30,15 +30,28 @@ function clientToNorm(clientX, clientY, img) {
   return { nx, ny, ...g };
 }
 
-function clientToNormClamped(clientX, clientY, img) {
-  const g = getContainedImageRect(img);
-  if (!g) return null;
-  const nxRaw = (clientX - g.ox) / g.dw;
-  const nyRaw = (clientY - g.oy) / g.dh;
-  const nx = Math.min(1, Math.max(0, nxRaw));
-  const ny = Math.min(1, Math.max(0, nyRaw));
-  const inside = nxRaw >= 0 && nxRaw <= 1 && nyRaw >= 0 && nyRaw <= 1;
-  return { nx, ny, inside, ...g };
+function findSwatchElAtClient(host, clientX, clientY) {
+  if (!host) return null;
+  const row = host.querySelector('.swatch-h-scroll');
+  if (!row) return null;
+  const hostRect = host.getBoundingClientRect();
+  if (clientY < hostRect.top - 6 || clientY > hostRect.bottom + 10) return null;
+  const chips = row.querySelectorAll('[data-swatch]');
+  if (!chips.length) return null;
+  let inside = null;
+  let nearest = null;
+  let nearestD = Infinity;
+  chips.forEach((el) => {
+    const r = el.getBoundingClientRect();
+    if (clientX >= r.left && clientX <= r.right) inside = el;
+    const mid = (r.left + r.right) / 2;
+    const d = Math.abs(clientX - mid);
+    if (d < nearestD) {
+      nearestD = d;
+      nearest = el;
+    }
+  });
+  return inside || nearest;
 }
 
 function drawMagnifier({ img, magCanvas, nx, ny }) {
@@ -167,6 +180,8 @@ function PhotoToPalette({
   const extractedSwatchesRef = useRef([]);
   const liveRafRef = useRef(0);
   const fileInputRef = useRef(null);
+  const swatchHostRef = useRef(null);
+  const overSwatchRef = useRef(null);
 
   const resizeImageFile = useCallback(async (file, maxWidth = 1200) => {
     const blobUrl = URL.createObjectURL(file);
@@ -310,34 +325,66 @@ function PhotoToPalette({
     })();
   };
 
-  const updateLoupeFromClient = useCallback((clientX, clientY) => {
+  const trackPickAtClient = useCallback((clientX, clientY) => {
     const img = imgRef.current;
     const wrap = wrapRef.current;
-    if (!img || !imageSrc) return null;
-    const hit = clientToNormClamped(clientX, clientY, img);
-    if (!hit) return null;
-    lastNormRef.current = { nx: hit.nx, ny: hit.ny };
-    drawMagnifier({ img, magCanvas: magRef.current, nx: hit.nx, ny: hit.ny });
-    const sampleHex = sampleHexAtNorm(hit.nx, hit.ny);
-    if (sampleHex) syncSwatchToSample(sampleHex);
-    const marker = markerRef.current;
-    if (marker && wrap) {
-      const wrapRect = wrap.getBoundingClientRect();
-      const box = 10;
-      marker.style.left = `${hit.ox - wrapRect.left + hit.nx * hit.dw - box / 2}px`;
-      marker.style.top = `${hit.oy - wrapRect.top + hit.ny * hit.dh - box / 2}px`;
-      marker.style.opacity = '1';
+    if (!img || !imageSrc) return 'none';
+
+    const hit = clientToNorm(clientX, clientY, img);
+    if (hit) {
+      overSwatchRef.current = null;
+      lastNormRef.current = { nx: hit.nx, ny: hit.ny };
+      drawMagnifier({ img, magCanvas: magRef.current, nx: hit.nx, ny: hit.ny });
+      const sampleHex = sampleHexAtNorm(hit.nx, hit.ny);
+      if (sampleHex) syncSwatchToSample(sampleHex);
+      const marker = markerRef.current;
+      if (marker && wrap) {
+        const wrapRect = wrap.getBoundingClientRect();
+        const box = 10;
+        marker.style.left = `${hit.ox - wrapRect.left + hit.nx * hit.dw - box / 2}px`;
+        marker.style.top = `${hit.oy - wrapRect.top + hit.ny * hit.dh - box / 2}px`;
+        marker.style.opacity = '1';
+      }
+      setPointerInsideImage(true);
+      return 'image';
     }
-    return hit;
+
+    setPointerInsideImage(false);
+    const el = findSwatchElAtClient(swatchHostRef.current, clientX, clientY);
+    if (el) {
+      const hex = String(el.getAttribute('data-swatch') || '').toLowerCase();
+      const swatch = extractedSwatchesRef.current.find(
+        (s) => s.hex.toLowerCase() === hex
+      );
+      if (swatch) {
+        overSwatchRef.current = swatch;
+        setLiveSampleHex(swatch.hex);
+        setActiveSwatchHex(swatch.hex);
+        return 'swatch';
+      }
+    }
+    return 'outside';
   }, [imageSrc, sampleHexAtNorm, syncSwatchToSample]);
+
+  const finishPickAtClient = useCallback(
+    (clientX, clientY) => {
+      const where = trackPickAtClient(clientX, clientY);
+      if (where === 'swatch' && overSwatchRef.current?.hex) {
+        reportHexToParent(overSwatchRef.current.hex);
+        return;
+      }
+      if (pickEnabled) commitPickAtLoupe();
+    },
+    [commitPickAtLoupe, pickEnabled, reportHexToParent, trackPickAtClient]
+  );
 
   const handleImageTouchStart = useCallback(
     (e) => {
       const t = e.touches?.[0] || e.changedTouches?.[0];
       if (!t) return;
-      updateLoupeFromClient(t.clientX, t.clientY);
+      trackPickAtClient(t.clientX, t.clientY);
     },
-    [updateLoupeFromClient]
+    [trackPickAtClient]
   );
 
   useEffect(() => {
@@ -355,7 +402,7 @@ function PhotoToPalette({
           // ignore
         }
       }
-      const hit = updateLoupeFromClient(touch.clientX, touch.clientY);
+      trackPickAtClient(touch.clientX, touch.clientY);
     };
 
     const onNativeTouchMove = (evt) => {
@@ -368,11 +415,13 @@ function PhotoToPalette({
           // ignore
         }
       }
-      updateLoupeFromClient(touch.clientX, touch.clientY);
+      trackPickAtClient(touch.clientX, touch.clientY);
     };
 
-    const onNativeTouchEnd = () => {
-      if (pickEnabled) commitPickAtLoupe();
+    const onNativeTouchEnd = (evt) => {
+      const touch = evt.changedTouches?.[0] || evt.touches?.[0];
+      if (touch) finishPickAtClient(touch.clientX, touch.clientY);
+      else if (pickEnabled) commitPickAtLoupe();
     };
 
     wrap.addEventListener('touchstart', onNativeTouchStart, { passive: false, capture: true });
@@ -389,7 +438,7 @@ function PhotoToPalette({
       img.removeEventListener('touchmove', onNativeTouchMove, { capture: true });
       img.removeEventListener('touchend', onNativeTouchEnd, { capture: true });
     };
-  }, [pickEnabled, updateLoupeFromClient, commitPickAtLoupe]);
+  }, [pickEnabled, trackPickAtClient, finishPickAtClient, commitPickAtLoupe]);
 
   const clearImage = () => {
     setImageSrc((prev) => {
@@ -516,23 +565,22 @@ function PhotoToPalette({
                 drawMagnifier({ img, magCanvas: magRef.current, nx: n.nx, ny: n.ny });
               }}
               onPointerEnter={(e) => {
-                setPointerInsideImage(true);
-                updateLoupeFromClient(e.clientX, e.clientY);
+                trackPickAtClient(e.clientX, e.clientY);
               }}
               onPointerLeave={() => {
                 setPointerInsideImage(false);
               }}
-              onPointerMove={(e) => updateLoupeFromClient(e.clientX, e.clientY)}
+              onPointerMove={(e) => trackPickAtClient(e.clientX, e.clientY)}
               onPointerDown={(e) => {
                 try {
                   e.currentTarget.setPointerCapture(e.pointerId);
                 } catch {
                   // ignore
                 }
-                updateLoupeFromClient(e.clientX, e.clientY);
+                trackPickAtClient(e.clientX, e.clientY);
               }}
-              onPointerUp={() => {
-                if (pickEnabled) commitPickAtLoupe();
+              onPointerUp={(e) => {
+                finishPickAtClient(e.clientX, e.clientY);
               }}
               onTouchStart={handleImageTouchStart}
               />
@@ -585,6 +633,7 @@ function PhotoToPalette({
           </div>
 
           <ExtractedSwatchStrip
+            hostRef={swatchHostRef}
             swatches={extractedSwatches}
             selectedHex={activeSwatchHex}
             liveHex={liveSampleHex}

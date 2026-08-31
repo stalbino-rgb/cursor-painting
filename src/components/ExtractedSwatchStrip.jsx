@@ -6,7 +6,7 @@ function isDarkRgb({ r, g, b }) {
   return 0.2126 * r + 0.7152 * g + 0.0722 * b < 148;
 }
 
-function ExtractedSwatchStrip({ swatches, selectedHex, liveHex, onSelect }) {
+function ExtractedSwatchStrip({ hostRef, swatches, selectedHex, liveHex, onSelect }) {
   const [copied, setCopied] = useState(null);
   const rowRef = useRef(null);
   const list = swatches || [];
@@ -46,7 +46,7 @@ function ExtractedSwatchStrip({ swatches, selectedHex, liveHex, onSelect }) {
   };
 
   return (
-    <div className="min-w-0">
+    <div ref={hostRef} className="min-w-0">
       <div ref={rowRef} className="swatch-h-scroll">
         {list.map((swatch, i) => {
           const selected = selectedHex && swatch.hex.toLowerCase() === String(selectedHex).toLowerCase();
