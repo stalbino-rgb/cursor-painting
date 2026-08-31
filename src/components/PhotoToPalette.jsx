@@ -269,24 +269,31 @@ function PhotoToPalette({
       onColorChange(newHex, { openPalette: false });
     }
     emitColorSelect(colorSnapshot(newHex, { source: 'photo-pick', action: 'mix' }));
-    setActiveSwatchHex(newHex);
     setHasPickedOnce(true);
   }, [onColorChange]);
 
   const pendingHexRef = useRef(null);
 
-  const syncSwatchToSample = useCallback((hex) => {
+  const syncLivePreview = useCallback((hex) => {
     if (!hex) return;
     pendingHexRef.current = hex;
     if (liveRafRef.current) return;
     liveRafRef.current = requestAnimationFrame(() => {
       liveRafRef.current = 0;
       const h = pendingHexRef.current;
-      if (!h) return;
-      setLiveSampleHex(h);
-      const near = findNearestSwatch(h, extractedSwatchesRef.current);
-      if (near?.hex) setActiveSwatchHex(near.hex);
+      if (h) setLiveSampleHex(h);
     });
+  }, []);
+
+  const lockNearestSwatch = useCallback((hex) => {
+    if (!hex) return;
+    const near = findNearestSwatch(hex, extractedSwatchesRef.current);
+    if (near?.hex) {
+      setActiveSwatchHex(near.hex);
+      setLiveSampleHex(near.hex);
+    } else {
+      setLiveSampleHex(hex);
+    }
   }, []);
 
   const commitPickAtLoupe = useCallback(() => {
@@ -295,9 +302,9 @@ function PhotoToPalette({
     if (!hexRaw) return;
     const hex = normalizeHexColor(hexRaw);
     setPickedNorm({ nx, ny });
-    syncSwatchToSample(hex);
+    lockNearestSwatch(hex);
     reportHexToParent(hex);
-  }, [reportHexToParent, sampleHexAtNorm, syncSwatchToSample]);
+  }, [lockNearestSwatch, reportHexToParent, sampleHexAtNorm]);
 
   const handleFileChange = (e) => {
     const file = e.target.files?.[0];
@@ -325,8 +332,8 @@ function PhotoToPalette({
     const { nx, ny } = lastNormRef.current;
     const hexRaw = sampleHexAtNorm(nx, ny);
     if (!hexRaw) return;
-    syncSwatchToSample(normalizeHexColor(hexRaw));
-  }, [sampleHexAtNorm, syncSwatchToSample]);
+    lockNearestSwatch(normalizeHexColor(hexRaw));
+  }, [lockNearestSwatch, sampleHexAtNorm]);
 
   const trackPickAtClient = useCallback((clientX, clientY) => {
     const img = imgRef.current;
@@ -349,7 +356,7 @@ function PhotoToPalette({
     lastNormRef.current = { nx: hit.nx, ny: hit.ny };
     drawMagnifier({ img, magCanvas: magRef.current, nx: hit.nx, ny: hit.ny });
     const sampleHex = sampleHexAtNorm(hit.nx, hit.ny);
-    if (sampleHex) syncSwatchToSample(sampleHex);
+    if (sampleHex) syncLivePreview(sampleHex);
     const marker = markerRef.current;
     if (marker && wrap) {
       const wrapRect = wrap.getBoundingClientRect();
@@ -360,7 +367,7 @@ function PhotoToPalette({
     }
     setPointerInsideImage(true);
     return 'image';
-  }, [freezeAtLastPhotoSample, imageSrc, sampleHexAtNorm, syncSwatchToSample]);
+  }, [freezeAtLastPhotoSample, imageSrc, sampleHexAtNorm, syncLivePreview]);
 
   const finishPickAtClient = useCallback(
     (clientX, clientY) => {
