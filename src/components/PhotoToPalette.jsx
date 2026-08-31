@@ -498,7 +498,7 @@ function PhotoToPalette({
                 src={imageSrc}
                 alt="업로드된 사진"
                 crossOrigin="anonymous"
-              className={`w-full h-auto max-h-40 sm:max-h-52 object-contain mx-auto block touch-manipulation ${
+              className={`w-full h-auto max-h-56 sm:max-h-72 object-contain mx-auto block touch-manipulation ${
                 pickEnabled ? 'cursor-crosshair' : 'cursor-default'
               }`}
               style={{
@@ -565,23 +565,23 @@ function PhotoToPalette({
                 }}
               />
 
-            <div className="absolute right-1.5 top-1.5 z-10 pointer-events-none">
+            <div className="absolute right-1.5 top-1.5 z-20 flex flex-col items-center gap-1.5">
               <div
                 ref={magWrapRef}
-                className="rounded-full border-2 border-white/90 overflow-hidden shadow-md w-14 h-14"
+                className="rounded-full border-2 border-white/90 overflow-hidden shadow-md w-14 h-14 pointer-events-none"
                 aria-hidden
               >
                 <canvas ref={magRef} width={96} height={96} className="w-full h-full block" />
               </div>
+              <button
+                type="button"
+                onClick={() => fileInputRef.current?.click()}
+                className="h-8 w-8 rounded-full bg-sky-500 text-white shadow-md flex items-center justify-center"
+                aria-label="다른 사진 업로드"
+              >
+                <ImagePlus size={16} />
+              </button>
             </div>
-            <button
-              type="button"
-              onClick={() => fileInputRef.current?.click()}
-              className="absolute left-1.5 top-1.5 z-20 h-8 w-8 rounded-full bg-sky-500 text-white shadow-md flex items-center justify-center"
-              aria-label="다른 사진 업로드"
-            >
-              <ImagePlus size={16} />
-            </button>
           </div>
 
           <ExtractedSwatchStrip

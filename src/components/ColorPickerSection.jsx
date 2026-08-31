@@ -101,16 +101,15 @@ function ColorPickerSection({
         </div>
       </div>
 
-      <CustomColorInput targetHex={targetHex} mixMode={mixMode} onApply={handleColorUpdate} />
-
       <PhotoToPalette
         targetHex={targetHex}
         pickEnabled={photoPickMode}
         // iOS Safari에서 "켜자마자 꺼짐" 체감 방지: pick 모드는 사용자가 스포이드 버튼으로 끌 때까지 유지합니다.
-        // (필요 시, 나중에 '자동 1회 추출 후 종료' 옵션으로 토글할 수 있음)
         onPickComplete={() => {}}
         onColorChange={handleColorUpdate}
       />
+
+      <CustomColorInput targetHex={targetHex} mixMode={mixMode} onApply={handleColorUpdate} />
 
       <BasePigmentsLegend pigments={pigments} />
     </div>
