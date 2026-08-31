@@ -30,6 +30,13 @@ function clientToNorm(clientX, clientY, img) {
   return { nx, ny, ...g };
 }
 
+function isHeldPickPointer(e) {
+  if (e.pointerType === 'mouse' || e.pointerType === '') {
+    return e.buttons === 1;
+  }
+  return true;
+}
+
 function isBelowPhoto(clientY, wrap, swatchHost) {
   if (swatchHost) {
     const r = swatchHost.getBoundingClientRect();
@@ -512,7 +519,7 @@ function PhotoToPalette({
               Photo to Palette
             </p>
             <p className="text-[10px] text-slate-500">
-              사진 위에서만 스포이드가 따라갑니다. 아래로 내리면 그때의 근사 스와치가 고정되고, 막대를 눌러 다른 색을 고를 수 있습니다.
+              사진 위를 누른 채로만 스포이드가 따라갑니다. 아래로 내리면 근사 스와치가 고정됩니다.
             </p>
           </div>
         </div>
@@ -566,14 +573,24 @@ function PhotoToPalette({
                 drawMagnifier({ img, magCanvas: magRef.current, nx: n.nx, ny: n.ny });
               }}
               onPointerEnter={(e) => {
-                if (gestureFrozenRef.current) return;
+                if (!isHeldPickPointer(e) || gestureFrozenRef.current) return;
                 trackPickAtClient(e.clientX, e.clientY);
               }}
               onPointerLeave={() => {
                 freezeAtLastPhotoSample();
               }}
-              onPointerMove={(e) => trackPickAtClient(e.clientX, e.clientY)}
+              onPointerMove={(e) => {
+                if (!isHeldPickPointer(e)) return;
+                trackPickAtClient(e.clientX, e.clientY);
+              }}
               onPointerDown={(e) => {
+                if (e.pointerType === 'mouse') {
+                  try {
+                    e.currentTarget.setPointerCapture(e.pointerId);
+                  } catch {
+                    // ignore
+                  }
+                }
                 gestureFrozenRef.current = false;
                 trackPickAtClient(e.clientX, e.clientY);
               }}
