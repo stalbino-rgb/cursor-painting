@@ -30,28 +30,16 @@ function clientToNorm(clientX, clientY, img) {
   return { nx, ny, ...g };
 }
 
-function findSwatchElAtClient(host, clientX, clientY) {
-  if (!host) return null;
-  const row = host.querySelector('.swatch-h-scroll');
-  if (!row) return null;
-  const hostRect = host.getBoundingClientRect();
-  if (clientY < hostRect.top - 6 || clientY > hostRect.bottom + 10) return null;
-  const chips = row.querySelectorAll('[data-swatch]');
-  if (!chips.length) return null;
-  let inside = null;
-  let nearest = null;
-  let nearestD = Infinity;
-  chips.forEach((el) => {
-    const r = el.getBoundingClientRect();
-    if (clientX >= r.left && clientX <= r.right) inside = el;
-    const mid = (r.left + r.right) / 2;
-    const d = Math.abs(clientX - mid);
-    if (d < nearestD) {
-      nearestD = d;
-      nearest = el;
-    }
-  });
-  return inside || nearest;
+function isBelowPhoto(clientY, wrap, swatchHost) {
+  if (swatchHost) {
+    const r = swatchHost.getBoundingClientRect();
+    if (clientY >= r.top - 4) return true;
+  }
+  if (wrap) {
+    const r = wrap.getBoundingClientRect();
+    if (clientY >= r.bottom - 2) return true;
+  }
+  return false;
 }
 
 function drawMagnifier({ img, magCanvas, nx, ny }) {
@@ -181,7 +169,7 @@ function PhotoToPalette({
   const liveRafRef = useRef(0);
   const fileInputRef = useRef(null);
   const swatchHostRef = useRef(null);
-  const overSwatchRef = useRef(null);
+  const gestureFrozenRef = useRef(false);
 
   const resizeImageFile = useCallback(async (file, maxWidth = 1200) => {
     const blobUrl = URL.createObjectURL(file);
@@ -325,57 +313,68 @@ function PhotoToPalette({
     })();
   };
 
+  const freezeAtLastPhotoSample = useCallback(() => {
+    setPointerInsideImage(false);
+    const { nx, ny } = lastNormRef.current;
+    const hexRaw = sampleHexAtNorm(nx, ny);
+    if (!hexRaw) return;
+    syncSwatchToSample(normalizeHexColor(hexRaw));
+  }, [sampleHexAtNorm, syncSwatchToSample]);
+
   const trackPickAtClient = useCallback((clientX, clientY) => {
     const img = imgRef.current;
     const wrap = wrapRef.current;
     if (!img || !imageSrc) return 'none';
 
-    const hit = clientToNorm(clientX, clientY, img);
-    if (hit) {
-      overSwatchRef.current = null;
-      lastNormRef.current = { nx: hit.nx, ny: hit.ny };
-      drawMagnifier({ img, magCanvas: magRef.current, nx: hit.nx, ny: hit.ny });
-      const sampleHex = sampleHexAtNorm(hit.nx, hit.ny);
-      if (sampleHex) syncSwatchToSample(sampleHex);
-      const marker = markerRef.current;
-      if (marker && wrap) {
-        const wrapRect = wrap.getBoundingClientRect();
-        const box = 10;
-        marker.style.left = `${hit.ox - wrapRect.left + hit.nx * hit.dw - box / 2}px`;
-        marker.style.top = `${hit.oy - wrapRect.top + hit.ny * hit.dh - box / 2}px`;
-        marker.style.opacity = '1';
-      }
-      setPointerInsideImage(true);
-      return 'image';
+    const leftPhoto = isBelowPhoto(clientY, wrap, swatchHostRef.current);
+    if (gestureFrozenRef.current || leftPhoto) {
+      gestureFrozenRef.current = true;
+      freezeAtLastPhotoSample();
+      return 'frozen';
     }
 
-    setPointerInsideImage(false);
-    const el = findSwatchElAtClient(swatchHostRef.current, clientX, clientY);
-    if (el) {
-      const hex = String(el.getAttribute('data-swatch') || '').toLowerCase();
-      const swatch = extractedSwatchesRef.current.find(
-        (s) => s.hex.toLowerCase() === hex
-      );
-      if (swatch) {
-        overSwatchRef.current = swatch;
-        setLiveSampleHex(swatch.hex);
-        setActiveSwatchHex(swatch.hex);
-        return 'swatch';
-      }
+    const hit = clientToNorm(clientX, clientY, img);
+    if (!hit) {
+      freezeAtLastPhotoSample();
+      return 'outside';
     }
-    return 'outside';
-  }, [imageSrc, sampleHexAtNorm, syncSwatchToSample]);
+
+    lastNormRef.current = { nx: hit.nx, ny: hit.ny };
+    drawMagnifier({ img, magCanvas: magRef.current, nx: hit.nx, ny: hit.ny });
+    const sampleHex = sampleHexAtNorm(hit.nx, hit.ny);
+    if (sampleHex) syncSwatchToSample(sampleHex);
+    const marker = markerRef.current;
+    if (marker && wrap) {
+      const wrapRect = wrap.getBoundingClientRect();
+      const box = 10;
+      marker.style.left = `${hit.ox - wrapRect.left + hit.nx * hit.dw - box / 2}px`;
+      marker.style.top = `${hit.oy - wrapRect.top + hit.ny * hit.dh - box / 2}px`;
+      marker.style.opacity = '1';
+    }
+    setPointerInsideImage(true);
+    return 'image';
+  }, [freezeAtLastPhotoSample, imageSrc, sampleHexAtNorm, syncSwatchToSample]);
 
   const finishPickAtClient = useCallback(
     (clientX, clientY) => {
       const where = trackPickAtClient(clientX, clientY);
-      if (where === 'swatch' && overSwatchRef.current?.hex) {
-        reportHexToParent(overSwatchRef.current.hex);
+      gestureFrozenRef.current = false;
+      if (!pickEnabled && where !== 'frozen') return;
+      const { nx, ny } = lastNormRef.current;
+      const hexRaw = sampleHexAtNorm(nx, ny);
+      if (!hexRaw) return;
+      const hex = normalizeHexColor(hexRaw);
+      const near = findNearestSwatch(hex, extractedSwatchesRef.current);
+      if (where === 'frozen' && near?.hex) {
+        setPickedNorm({ nx, ny });
+        setLiveSampleHex(near.hex);
+        setActiveSwatchHex(near.hex);
+        reportHexToParent(near.hex);
         return;
       }
       if (pickEnabled) commitPickAtLoupe();
     },
-    [commitPickAtLoupe, pickEnabled, reportHexToParent, trackPickAtClient]
+    [commitPickAtLoupe, pickEnabled, reportHexToParent, sampleHexAtNorm, trackPickAtClient]
   );
 
   const handleImageTouchStart = useCallback(
@@ -395,6 +394,7 @@ function PhotoToPalette({
     const onNativeTouchStart = (evt) => {
       const touch = evt.touches?.[0] || evt.changedTouches?.[0];
       if (!touch) return;
+      gestureFrozenRef.current = false;
       if (pickEnabled) {
         try {
           evt.preventDefault();
@@ -408,7 +408,8 @@ function PhotoToPalette({
     const onNativeTouchMove = (evt) => {
       const touch = evt.touches?.[0] || evt.changedTouches?.[0];
       if (!touch) return;
-      if (pickEnabled) {
+      const leftPhoto = isBelowPhoto(touch.clientY, wrap, swatchHostRef.current);
+      if (pickEnabled && !leftPhoto && !gestureFrozenRef.current) {
         try {
           evt.preventDefault();
         } catch {
@@ -511,7 +512,7 @@ function PhotoToPalette({
               Photo to Palette
             </p>
             <p className="text-[10px] text-slate-500">
-              스와치를 밀어 더 많은 색을 보고, 스포이드를 켠 뒤 사진을 문지르면 확대가 따라갑니다.
+              사진 위에서만 스포이드가 따라갑니다. 아래로 내리면 그때의 근사 스와치가 고정되고, 막대를 눌러 다른 색을 고를 수 있습니다.
             </p>
           </div>
         </div>
@@ -565,18 +566,15 @@ function PhotoToPalette({
                 drawMagnifier({ img, magCanvas: magRef.current, nx: n.nx, ny: n.ny });
               }}
               onPointerEnter={(e) => {
+                if (gestureFrozenRef.current) return;
                 trackPickAtClient(e.clientX, e.clientY);
               }}
               onPointerLeave={() => {
-                setPointerInsideImage(false);
+                freezeAtLastPhotoSample();
               }}
               onPointerMove={(e) => trackPickAtClient(e.clientX, e.clientY)}
               onPointerDown={(e) => {
-                try {
-                  e.currentTarget.setPointerCapture(e.pointerId);
-                } catch {
-                  // ignore
-                }
+                gestureFrozenRef.current = false;
                 trackPickAtClient(e.clientX, e.clientY);
               }}
               onPointerUp={(e) => {
