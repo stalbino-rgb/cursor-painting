@@ -7,10 +7,10 @@ function AppHeader() {
       <div className="space-y-3">
         <span className="pill inline-flex items-center gap-2">
           <Droplets size={14} className="text-rose-400" />
-          ACRYLIC MIXING GUIDE
+          COLOR MIXING GUIDE
         </span>
         <h1 className="text-2xl md:text-3xl font-semibold tracking-tight text-slate-900">
-          아크릴 컬러 조색 가이드
+          칼러 조색 가이드
         </h1>
         <p className="text-sm text-slate-500 leading-relaxed max-w-xl">
           목표 색을 선택하면, 기본 5색(

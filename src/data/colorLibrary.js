@@ -1,8 +1,22 @@
 /**
- * Color Library - 200+ art/pigment colors for landscapes, still life, portraits
- * Format: { name, koName?, hex }
+ * Color Library - generic pigments plus brand sets (Prisma 72, Shield 36, Mijello 34, Shinhan 32)
+ * Format: { name, koName?, hex, brand?, prismaNo?|shieldNo?|mijelloNo?|shinhanNo? }
  */
-export const COLOR_LIBRARY = [
+import {
+  PRISMA_PREMIER_72,
+  SHIELD_EPIC_36,
+  MIJELLO_MISSION_GOLD_34,
+  SHINHAN_SWC_32
+} from './brandSetColors';
+
+export {
+  PRISMA_PREMIER_72,
+  SHIELD_EPIC_36,
+  MIJELLO_MISSION_GOLD_34,
+  SHINHAN_SWC_32
+};
+
+const GENERIC_COLOR_LIBRARY = [
   // === Pigment Reds & Crimsons ===
   { name: 'Alizarin Crimson', koName: '알리자린 크림슨', hex: '#E32636' },
   { name: 'Crimson', hex: '#DC143C' },
@@ -225,8 +239,15 @@ export const COLOR_LIBRARY = [
   { name: 'Gunmetal', hex: '#2C3539' },
   { name: 'Bronze', hex: '#CD7F32' },
   { name: 'Copper', hex: '#B87333' },
-  { name: 'Brass', hex: '#B5A642' },
-  { name: 'Gold Ochre', hex: '#C77826' }
+  { name: 'Brass', hex: '#B5A642' }
+];
+
+export const COLOR_LIBRARY = [
+  ...GENERIC_COLOR_LIBRARY,
+  ...PRISMA_PREMIER_72,
+  ...SHIELD_EPIC_36,
+  ...MIJELLO_MISSION_GOLD_34,
+  ...SHINHAN_SWC_32
 ];
 
 /** Diverse subset for mixing - primaries, secondaries, neutrals */

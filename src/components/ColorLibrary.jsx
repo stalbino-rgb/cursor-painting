@@ -8,7 +8,11 @@ import { hexToApproxMunsell, formatMunsellNotation } from '../utils/munsell';
 const SORT_OPTIONS = [
   { id: 'similar', label: '비슷한 색상순' },
   { id: 'alpha', label: '알파벳 이름순 (A-Z)' },
-  { id: 'faberNo', label: '브랜드 No.순 (Faber·Caran)' }
+  { id: 'faberNo', label: '브랜드 No.순 (Faber·Caran)' },
+  { id: 'prismaNo', label: '프리즈마(72색)' },
+  { id: 'shieldNo', label: '쉴드 에픽(36색)' },
+  { id: 'mijelloNo', label: '미젤로 미션골드(34색)' },
+  { id: 'shinhanNo', label: '신한SWC 수채(32색)' }
 ];
 
 const ALPHABET = 'ABCDEFGHIJKLMNOPQRSTUVWXYZ'.split('');
@@ -43,6 +47,7 @@ function ColorLibrary({ onColorSelect }) {
   const searchTimeoutRef = useRef(null);
   const [munsellFilter, setMunsellFilter] = useState('all');
   const [showOwnedSetsOnly, setShowOwnedSetsOnly] = useState(false);
+  const [brandFilter, setBrandFilter] = useState('all');
 
   const mergedLibrary = useMemo(() => {
     const merged = [
@@ -56,7 +61,10 @@ function ColorLibrary({ onColorSelect }) {
         source: FABER_CASTELL_ALBRECHT_DURER_72.name,
         brand: FABER_CASTELL_ALBRECHT_DURER_72.brand
       })),
-      ...COLOR_LIBRARY
+      ...COLOR_LIBRARY.map((color) => ({
+        ...color,
+        source: color.source || color.brand || 'library'
+      }))
     ];
     const unique = [];
     const seen = new Set();
@@ -76,6 +84,10 @@ function ColorLibrary({ onColorSelect }) {
     if (showOwnedSetsOnly) {
       list = list.filter((c) => Boolean(c.isSet72) || Boolean(c.isSet30));
     }
+    if (brandFilter === 'prisma') list = list.filter((c) => c.prismaNo != null);
+    if (brandFilter === 'shield') list = list.filter((c) => c.shieldNo != null);
+    if (brandFilter === 'mijello') list = list.filter((c) => c.mijelloNo != null);
+    if (brandFilter === 'shinhan') list = list.filter((c) => c.shinhanNo != null);
     if (munsellFilter !== 'all') {
       list = list.filter((c) => {
         const m = hexToApproxMunsell(c.hex);
@@ -89,10 +101,22 @@ function ColorLibrary({ onColorSelect }) {
       const match = (c) => {
         const en = (c.name || '').toLowerCase();
         const ko = (c.koName || '').toLowerCase();
+        const brand = (c.brand || c.source || '').toLowerCase();
         const h = (normalizeHex(c.hex) || c.hex || '').toLowerCase();
         const m = formatMunsellNotation(hexToApproxMunsell(c.hex) || { step: 5, major: 'R', value: 5, chroma: 10 })
           .toLowerCase();
-        return en.includes(q) || ko.includes(q) || h.includes(q) || m.includes(q);
+        const nos = [c.prismaNo, c.shieldNo, c.mijelloNo, c.shinhanNo]
+          .filter((n) => n != null)
+          .map(String)
+          .join(' ');
+        return (
+          en.includes(q) ||
+          ko.includes(q) ||
+          brand.includes(q) ||
+          h.includes(q) ||
+          m.includes(q) ||
+          nos.includes(q)
+        );
       };
       const exact = list.filter((c) => (c.name || '').toLowerCase() === q || (c.koName || '').toLowerCase() === q);
       const partial = list.filter((c) => match(c) && !exact.some((e) => e.name === c.name));
@@ -121,8 +145,27 @@ function ColorLibrary({ onColorSelect }) {
         return (a.name || '').localeCompare(b.name || '', 'en');
       });
     }
-    return sortBySimilarColor(list);
-  }, [searchQuery, sortBy, munsellFilter, mergedLibrary, showOwnedSetsOnly]);
+    if (sortBy === 'prismaNo') {
+      return [...list].sort((a, b) => (a.prismaNo ?? 9999) - (b.prismaNo ?? 9999));
+    }
+    if (sortBy === 'shieldNo') {
+      return [...list].sort((a, b) => (a.shieldNo ?? 9999) - (b.shieldNo ?? 9999));
+    }
+    if (sortBy === 'mijelloNo') {
+      return [...list].sort((a, b) => (a.mijelloNo ?? 9999) - (b.mijelloNo ?? 9999));
+    }
+    if (sortBy === 'shinhanNo') {
+      return [...list].sort((a, b) => (a.shinhanNo ?? 9999) - (b.shinhanNo ?? 9999));
+    }
+    const sorted = sortBySimilarColor(list);
+    const numbered = sorted.filter(
+      (c) => c.prismaNo != null || c.shieldNo != null || c.mijelloNo != null || c.shinhanNo != null
+    );
+    const rest = sorted.filter(
+      (c) => c.prismaNo == null && c.shieldNo == null && c.mijelloNo == null && c.shinhanNo == null
+    );
+    return [...numbered, ...rest];
+  }, [searchQuery, sortBy, munsellFilter, mergedLibrary, showOwnedSetsOnly, brandFilter]);
 
   const displayList = useMemo(() => {
     if (externalResults.length > 0) return externalResults;
@@ -150,7 +193,8 @@ function ColorLibrary({ onColorSelect }) {
       (c) =>
         c.name.toLowerCase() === q.toLowerCase() ||
         c.name.toLowerCase().includes(q.toLowerCase()) ||
-        (c.koName || '').toLowerCase().includes(q.toLowerCase())
+        (c.koName || '').toLowerCase().includes(q.toLowerCase()) ||
+        (c.brand || '').toLowerCase().includes(q.toLowerCase())
     );
     if (hasLibraryMatch) {
       setExternalResults([]);
@@ -243,6 +287,11 @@ function ColorLibrary({ onColorSelect }) {
                       onClick={() => {
                         setSortBy(opt.id);
                         setSortOpen(false);
+                        if (opt.id === 'prismaNo') setBrandFilter('prisma');
+                        else if (opt.id === 'shieldNo') setBrandFilter('shield');
+                        else if (opt.id === 'mijelloNo') setBrandFilter('mijello');
+                        else if (opt.id === 'shinhanNo') setBrandFilter('shinhan');
+                        else setBrandFilter('all');
                       }}
                       className={`w-full text-left px-3 py-2 text-xs font-medium hover:bg-slate-50 ${
                         sortBy === opt.id ? 'text-sky-600 bg-sky-50' : 'text-slate-700'
@@ -277,12 +326,15 @@ function ColorLibrary({ onColorSelect }) {
             </select>
           </div>
 
-          <div className="flex items-center gap-2">
+          <div className="flex flex-wrap items-center gap-2">
             <span className="text-[11px] text-slate-500">표시:</span>
             <button
               type="button"
               disabled={isFromExternal}
-              onClick={() => setShowOwnedSetsOnly((v) => !v)}
+              onClick={() => {
+                setShowOwnedSetsOnly((v) => !v);
+                setBrandFilter('all');
+              }}
               className={`px-2.5 py-1.5 rounded-lg border text-xs font-medium transition-colors ${
                 isFromExternal
                   ? 'border-slate-200 bg-slate-50 text-slate-300 cursor-not-allowed'
@@ -298,6 +350,37 @@ function ColorLibrary({ onColorSelect }) {
             >
               72+30만 보기
             </button>
+            {[
+              { id: 'prisma', label: '프리즈마 72', active: 'bg-violet-600 text-white border-violet-600' },
+              { id: 'shield', label: '쉴드 36', active: 'bg-sky-600 text-white border-sky-600' },
+              { id: 'mijello', label: '미젤로 34', active: 'bg-orange-500 text-white border-orange-500' },
+              { id: 'shinhan', label: '신한 32', active: 'bg-emerald-600 text-white border-emerald-600' }
+            ].map((chip) => (
+              <button
+                key={chip.id}
+                type="button"
+                disabled={isFromExternal}
+                onClick={() => {
+                  const next = brandFilter === chip.id ? 'all' : chip.id;
+                  setBrandFilter(next);
+                  setShowOwnedSetsOnly(false);
+                  if (next === 'prisma') setSortBy('prismaNo');
+                  else if (next === 'shield') setSortBy('shieldNo');
+                  else if (next === 'mijello') setSortBy('mijelloNo');
+                  else if (next === 'shinhan') setSortBy('shinhanNo');
+                  else setSortBy('similar');
+                }}
+                className={`px-2.5 py-1.5 rounded-lg border text-xs font-medium transition-colors ${
+                  isFromExternal
+                    ? 'border-slate-200 bg-slate-50 text-slate-300 cursor-not-allowed'
+                    : brandFilter === chip.id
+                      ? chip.active
+                      : 'border-slate-200 bg-white text-slate-700 hover:bg-slate-50'
+                }`}
+              >
+                {chip.label}
+              </button>
+            ))}
           </div>
         </div>
       </div>
@@ -312,7 +395,7 @@ function ColorLibrary({ onColorSelect }) {
               {searchQuery.trim() ? '검색 결과가 없습니다.' : '색상이 없습니다.'}
             </div>
           ) : (
-            <div className="grid grid-cols-4 gap-2 px-2 py-2">
+            <div className={`grid gap-2 px-2 py-2 ${brandFilter === 'all' ? 'grid-cols-4' : 'grid-cols-3 sm:grid-cols-4'}`}>
               {displayList.map((color, i) => (
                 (() => {
                   const isFaber = color.source === faberSourceName || color.brand === 'Faber-Castell';
@@ -329,15 +412,15 @@ function ColorLibrary({ onColorSelect }) {
                     rowRefs.current[`row-${i}`] = el;
                   }}
                   onClick={() => onColorSelect?.(color)}
-                  className={`group flex flex-col items-center justify-center p-2 rounded-lg hover:bg-slate-50/90 active:bg-slate-100/90 text-left transition-colors ${tileClass}`}
-                  title={`${color.name} (${(normalizeHex(color.hex) || color.hex).toUpperCase()})`}
+                  className={`group relative overflow-visible flex flex-col items-center justify-center p-2 rounded-lg hover:bg-slate-50/90 active:bg-slate-100/90 text-left transition-colors ${tileClass}`}
+                  title={`${color.koName ? `${color.name} / ${color.koName}` : color.name} (${(normalizeHex(color.hex) || color.hex).toUpperCase()})`}
                 >
-                  <div className="relative">
+                  <div className="relative overflow-visible pt-1 pr-1">
                     <div
                       className="w-8 h-8 shrink-0 rounded-lg border border-white/80 shadow-sm"
                       style={{ backgroundColor: color.hex }}
                     />
-                    <div className="absolute -right-1 -top-1 flex flex-col gap-0.5 items-end">
+                    <div className="absolute -right-1 -top-1 z-10 flex flex-col gap-0.5 items-end pointer-events-none">
                       {isCaran && isSet30 && (
                         <span className="rounded-full bg-amber-800 text-white text-[9px] font-semibold px-1.5 py-0.5 shadow-sm leading-none">
                           30
@@ -348,11 +431,36 @@ function ColorLibrary({ onColorSelect }) {
                           72
                         </span>
                       )}
+                      {color.prismaNo != null && (
+                        <span className="rounded-full bg-violet-600 text-white text-[9px] font-semibold px-1.5 py-0.5 shadow-sm leading-none">
+                          P{color.prismaNo}
+                        </span>
+                      )}
+                      {color.shieldNo != null && (
+                        <span className="rounded-full bg-sky-600 text-white text-[9px] font-semibold px-1.5 py-0.5 shadow-sm leading-none">
+                          S{color.shieldNo}
+                        </span>
+                      )}
+                      {color.mijelloNo != null && (
+                        <span className="rounded-full bg-orange-500 text-white text-[9px] font-semibold px-1.5 py-0.5 shadow-sm leading-none">
+                          M{color.mijelloNo}
+                        </span>
+                      )}
+                      {color.shinhanNo != null && (
+                        <span className="rounded-full bg-emerald-600 text-white text-[9px] font-semibold px-1.5 py-0.5 shadow-sm leading-none">
+                          H{color.shinhanNo}
+                        </span>
+                      )}
                     </div>
                   </div>
                   <code className="mt-1 text-[9px] font-mono text-slate-500 group-hover:text-slate-600">
                     {(normalizeHex(color.hex) || color.hex).slice(0, 7)}
                   </code>
+                  {brandFilter !== 'all' && (
+                    <span className="mt-0.5 w-full text-center text-[9px] leading-tight text-slate-600 line-clamp-2">
+                      {color.koName || color.name}
+                    </span>
+                  )}
                 </button>
                   );
                 })()

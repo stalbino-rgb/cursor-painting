@@ -171,6 +171,32 @@ input[type='range']::-moz-range-track {
   padding-bottom: max(0.75rem, env(safe-area-inset-bottom));
 }
 
+.no-scrollbar {
+  -ms-overflow-style: none;
+  scrollbar-width: none;
+}
+.no-scrollbar::-webkit-scrollbar {
+  display: none;
+}
+
+.swatch-h-scroll {
+  display: flex;
+  flex-wrap: nowrap;
+  overflow-x: auto;
+  overflow-y: hidden;
+  -webkit-overflow-scrolling: touch;
+  touch-action: pan-x;
+  overscroll-behavior-x: contain;
+  scrollbar-width: thin;
+}
+.swatch-h-scroll::-webkit-scrollbar {
+  height: 3px;
+}
+.swatch-h-scroll::-webkit-scrollbar-thumb {
+  background: rgba(100, 116, 139, 0.45);
+  border-radius: 99px;
+}
+
 @supports (padding: max(0px)) {
   .safe-area-top {
     padding-top: max(0.75rem, env(safe-area-inset-top));

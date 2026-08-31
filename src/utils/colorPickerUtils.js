@@ -301,8 +301,13 @@ export function calculateSparseMixPreferCaran(targetHex, list, options) {
     consider(candidateSol);
   }
 
-  if (!best) return calculateMixFromLibrary(t, list, minRatio);
-  return { approximateHex: best.approximateHex, parts: best.parts };
+  if (!best) return calculateMixFromLibrary(t, list, minRatio, maxK);
+  const capped = (best.parts || []).slice(0, maxK);
+  const sum = capped.reduce((s, p) => s + (p.ratio || 0), 0) || 1;
+  return {
+    approximateHex: best.approximateHex,
+    parts: capped.map((p) => ({ ...p, ratio: p.ratio / sum }))
+  };
 }
 
 

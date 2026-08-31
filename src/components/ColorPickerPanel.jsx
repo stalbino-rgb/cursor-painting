@@ -75,26 +75,13 @@ function ColorPickerPanel({
     onChange?.(newHex);
   };
 
-  const handleEyedropper = async () => {
+  const handleEyedropper = () => {
     if (photoPickActive) {
       onExitPhotoPickMode?.();
       return;
     }
-    if (typeof window !== 'undefined' && window.EyeDropper) {
-      try {
-        const dropper = new window.EyeDropper();
-        const result = await dropper.open();
-        if (result?.sRGBHex) {
-          const newHex = normalizeHexColor(result.sRGBHex);
-          console.log('TRACE [Picker]: 피커 조작 ->', newHex);
-          onChange?.(newHex);
-          onExitPhotoPickMode?.();
-          return;
-        }
-      } catch {
-        // fall through to photo mode
-      }
-    }
+    // Native EyeDropper steals the pointer on desktop and freezes our photo loupe.
+    // Photo sampling is the intended path for this app.
     onEnterPhotoPickMode?.();
   };
 
@@ -178,7 +165,7 @@ function ColorPickerPanel({
           title={
             photoPickActive
               ? '사진에서 색을 찍어 주세요'
-              : '스포이드 (화면 또는 사진에서 색 추출)'
+              : '사진 스포이드 켜기'
           }
           aria-pressed={photoPickActive}
         >
@@ -223,7 +210,7 @@ function ColorPickerPanel({
 
       {photoPickActive && (
         <p className="text-[11px] text-sky-700 bg-sky-50/90 border border-sky-100 rounded-lg px-2 py-1.5">
-          사진 위를 탭하면 해당 픽셀 색이 목표색으로 적용됩니다. 스포이드 버튼을 다시 누르면 취소됩니다.
+          사진을 문지르면 원형 확대가 따라갑니다. 손을 떼거나 클릭하면 그 색으로 조색합니다. 버튼을 다시 누르면 꺼집니다.
         </p>
       )}
     </div>

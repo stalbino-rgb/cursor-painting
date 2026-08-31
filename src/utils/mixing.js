@@ -146,7 +146,15 @@ export function calculateMixForHex(hex) {
   const parts = MIXABLE_PIGMENTS.map((p, idx) => ({
     ...p,
     ratio: w[idx]
-  })).filter((p) => p.ratio > 0.01);
+  }))
+    .filter((p) => p.ratio > 0.01)
+    .sort((a, b) => b.ratio - a.ratio)
+    .slice(0, 4);
+
+  const partSum = parts.reduce((s, p) => s + p.ratio, 0) || 1;
+  parts.forEach((p) => {
+    p.ratio /= partSum;
+  });
 
   return {
     targetHex: safeHex,
@@ -207,7 +215,9 @@ export function mixFromPigmentRatios(ratioByKey) {
 
 // Mix from an arbitrary list of colors (e.g. library colors) using CMY-based NNLS.
 // Returns { approximateHex, parts: [{ name, hex, ratio }] }.
-export function calculateMixFromLibrary(targetHex, colorList, minRatio = 0.01) {
+export const MAX_MIX_COLORS = 4;
+
+export function calculateMixFromLibrary(targetHex, colorList, minRatio = 0.01, maxParts = MAX_MIX_COLORS) {
   const safeTarget = normalizeHexColor(targetHex);
   if (!colorList?.length) return { approximateHex: safeTarget, parts: [] };
 
@@ -242,22 +252,28 @@ export function calculateMixFromLibrary(targetHex, colorList, minRatio = 0.01) {
     for (let i = 0; i < n; i++) w[i] /= sum;
   }
 
+  const ranked = colors
+    .map((c, i) => ({ c, w: w[i], i }))
+    .filter((e) => e.w >= minRatio)
+    .sort((a, b) => b.w - a.w)
+    .slice(0, maxParts);
+
+  const partSum = ranked.reduce((s, e) => s + e.w, 0) || 1;
   const finalMixCmy = [0, 0, 0];
-  const parts = [];
-  for (let i = 0; i < n; i++) {
-    if (w[i] < minRatio) continue;
-    finalMixCmy[0] += w[i] * colors[i].cmy[0];
-    finalMixCmy[1] += w[i] * colors[i].cmy[1];
-    finalMixCmy[2] += w[i] * colors[i].cmy[2];
-    parts.push({
-      name: colors[i].name,
-      hex: colors[i].hex,
-      no: colors[i].no,
-      key: colors[i].key ?? `lib-${i}`,
-      ratio: w[i],
-      isCaran30: colors[i].isCaran30
-    });
-  }
+  const parts = ranked.map((e) => {
+    const rw = e.w / partSum;
+    finalMixCmy[0] += rw * e.c.cmy[0];
+    finalMixCmy[1] += rw * e.c.cmy[1];
+    finalMixCmy[2] += rw * e.c.cmy[2];
+    return {
+      name: e.c.name,
+      hex: e.c.hex,
+      no: e.c.no ?? e.c.prismaNo ?? e.c.shieldNo ?? e.c.mijelloNo ?? e.c.shinhanNo,
+      key: e.c.key ?? `lib-${e.i}`,
+      ratio: rw,
+      isCaran30: e.c.isCaran30
+    };
+  });
 
   const finalRgb = cmyToRgb(finalMixCmy);
   const approximateHex = rgbToHex(finalRgb);

@@ -6,7 +6,7 @@ function MixingAnimation({ parts, resultHex }) {
 
   useEffect(() => {
     setKey((k) => k + 1);
-  }, [parts?.map((p) => p.key + p.ratio).join(','), resultHex]);
+  }, [parts?.map((p) => `${p?.key ?? p?.hex ?? ''}:${p?.ratio ?? 0}`).join(','), resultHex]);
 
   if (!parts?.length) {
     return (
@@ -45,10 +45,10 @@ function MixingAnimation({ parts, resultHex }) {
         {/* pigment droplets - start at perimeter, converge to center */}
         {parts.map((p, i) => {
           const pos = positions[i];
-          const size = 14 + Math.min(p.ratio * 60, 20);
+          const size = 14 + Math.min((Number(p.ratio) || 0) * 60, 20);
           return (
             <div
-              key={`${p.key}-${key}`}
+              key={`${p.key ?? p.hex ?? i}-${key}`}
               className="absolute -translate-x-1/2 -translate-y-1/2 animate-droplet-mix"
               style={{
                 left: `${pos.x}%`,

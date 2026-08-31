@@ -17,7 +17,8 @@ function MixingPreview({
   PIGMENT_LIST,
   adjustments,
   adjustedPartsByKey,
-  onChangePigmentFactor
+  onChangePigmentFactor,
+  showPigmentSliders = true
 }) {
   return (
     <div key={containerKey} className="rounded-3xl bg-slate-950/95 text-slate-50 p-4 md:p-5 shadow-xl">
@@ -32,7 +33,7 @@ function MixingPreview({
         </div>
         <div className="flex items-center gap-2 text-[11px] text-slate-400">
           <Info size={13} />
-          감산 혼합(CMY) 공간에서 근사 계산
+          감산 혼합 · 최대 4색
         </div>
       </div>
 
@@ -121,6 +122,7 @@ function MixingPreview({
               ))}
             </div>
 
+            {showPigmentSliders && (
             <div className="mt-1 pt-3 border-t border-slate-800/70 space-y-2">
               <p className="text-[11px] font-medium tracking-[0.18em] text-slate-400 uppercase">
                 비율 조절
@@ -176,6 +178,7 @@ function MixingPreview({
                 })}
               </div>
             </div>
+            )}
           </>
         ) : (
           <p className="text-[11px] text-slate-500">

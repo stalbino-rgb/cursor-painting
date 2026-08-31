@@ -1,9 +1,9 @@
 import React, { useMemo } from 'react';
 import { X, Sparkles } from 'lucide-react';
 import { calculateSparseMixPreferCaran, formatPartNameWithBadges } from '../utils/colorPickerUtils';
-import { getNearestAcrossPalettesPreferCaran } from '../utils/paletteMatching';
-import { CARAN_NEOCOLOR_II_30, FABER_CASTELL_ALBRECHT_DURER_72 } from '../data/colorData';
+import { getNearestColorInPalette } from '../utils/paletteMatching';
 import { normalizeHexColor } from '../utils/hexNormalize';
+import { getMixPoolForMode, getMixModeHint, MIX_MODE_OPTIONS, MAX_MIX_COLORS } from '../utils/mixPools';
 import MixingAnimation from './MixingAnimation';
 
 function formatPercent(v) {
@@ -12,99 +12,55 @@ function formatPercent(v) {
 
 function formatNo(no) {
   if (typeof no !== 'number') return '';
-  return String(no).padStart(3, '0');
+  return String(no);
 }
 
-function FaberMixModal({ targetHex, open, onClose, onApplyNearestAsTarget }) {
-  const faberSet72 = useMemo(
-    () => FABER_CASTELL_ALBRECHT_DURER_72.colors.filter((c) => c.isSet72),
-    []
-  );
-  const caranSet30 = useMemo(
-    () => CARAN_NEOCOLOR_II_30.colors.filter((c) => c.isSet30),
-    []
-  );
+function BrandPaletteModal({ mixMode, targetHex, open, onClose, onApplyNearestAsTarget }) {
+  const meta = MIX_MODE_OPTIONS.find((o) => o.id === mixMode) || MIX_MODE_OPTIONS[0];
+  const pool = useMemo(() => (mixMode ? getMixPoolForMode(mixMode) : []), [mixMode]);
 
-  const palettesForNearest = useMemo(
-    () => [
-      { ...CARAN_NEOCOLOR_II_30, colors: caranSet30 },
-      { ...FABER_CASTELL_ALBRECHT_DURER_72, colors: faberSet72 }
-    ],
-    [caranSet30, faberSet72]
+  const palette = useMemo(
+    () => ({
+      id: mixMode,
+      name: meta.label,
+      brand: meta.label,
+      colors: pool
+    }),
+    [mixMode, meta.label, pool]
   );
 
   const nearest = useMemo(
-    () =>
-      targetHex ? getNearestAcrossPalettesPreferCaran(targetHex, palettesForNearest) : null,
-    [targetHex, palettesForNearest]
+    () => (targetHex && pool.length ? getNearestColorInPalette(normalizeHexColor(targetHex), palette) : null),
+    [targetHex, palette, pool.length]
   );
 
   const mix = useMemo(() => {
-    if (!targetHex) return null;
+    if (!targetHex || !pool.length) return null;
     const t = normalizeHexColor(targetHex);
-    const exactCaran = caranSet30.find((c) => normalizeHexColor(c.hex) === t);
-    if (exactCaran) {
+    const exact = pool.find((c) => normalizeHexColor(c.hex) === t);
+    if (exact) {
       return {
-        approximateHex: exactCaran.hex,
-        parts: [
-          {
-            name: exactCaran.name,
-            hex: exactCaran.hex,
-            no: exactCaran.no,
-            key: `caran-${exactCaran.no}`,
-            ratio: 1,
-            isCaran30: true
-          }
-        ]
+        approximateHex: exact.hex,
+        parts: [{ ...exact, ratio: 1, key: exact.key || exact.hex }]
       };
     }
-    const exactFaber = faberSet72.find((c) => normalizeHexColor(c.hex) === t);
-    if (exactFaber) {
-      return {
-        approximateHex: exactFaber.hex,
-        parts: [
-          {
-            name: exactFaber.name,
-            hex: exactFaber.hex,
-            no: exactFaber.no,
-            key: `faber-${exactFaber.no}`,
-            ratio: 1,
-            isCaran30: false
-          }
-        ]
-      };
-    }
-    const list = [
-      ...caranSet30.map((c) => ({
-        name: c.name,
-        hex: c.hex,
-        no: c.no,
-        key: `caran-${c.no}`,
-        isCaran30: true
-      })),
-      ...faberSet72.map((c) => ({
-        name: c.name,
-        hex: c.hex,
-        no: c.no,
-        key: `faber-${c.no}`,
-        isCaran30: false
-      }))
-    ];
-    return calculateSparseMixPreferCaran(targetHex, list, { maxK: 4, candidateLimit: 18, minRatio: 0.03 });
-  }, [targetHex, caranSet30, faberSet72]);
+    return calculateSparseMixPreferCaran(targetHex, pool, {
+      maxK: MAX_MIX_COLORS,
+      candidateLimit: 20,
+      minRatio: 0.03
+    });
+  }, [targetHex, pool]);
 
   const parts = mix?.parts ?? [];
   const hasMix = parts.length > 0;
 
   const nearestLabel = useMemo(() => {
     if (!nearest) return '—';
-    const n = formatNo(nearest.no);
+    const n = formatNo(nearest.no ?? nearest.prismaNo ?? nearest.shieldNo ?? nearest.mijelloNo ?? nearest.shinhanNo);
     const base = n ? `No.${n} ${nearest.name}` : nearest.name;
-    if (nearest.paletteBrand === "Caran d'Ache") return `${base} (30)`;
+    if (nearest.isCaran30 || nearest.brand === "Caran d'Ache") return `${base} (30)`;
     return base;
   }, [nearest]);
-
-  const partLabel = (p) => formatPartNameWithBadges(p);
 
   if (!open) return null;
 
@@ -121,11 +77,9 @@ function FaberMixModal({ targetHex, open, onClose, onApplyNearestAsTarget }) {
                 </div>
                 <div>
                   <p className="text-xs font-semibold tracking-[0.2em] text-slate-500 uppercase">
-                    파버카스텔 조색
+                    {meta.label} 조색
                   </p>
-                  <p className="text-[11px] text-slate-500">
-                    Faber 72 + Caran Neocolor II 30 (102색) 중 가장 가까운 색 · 비슷하면 Caran 우선
-                  </p>
+                  <p className="text-[11px] text-slate-500">{getMixModeHint(mixMode)}</p>
                 </div>
               </div>
               <button
@@ -147,10 +101,10 @@ function FaberMixModal({ targetHex, open, onClose, onApplyNearestAsTarget }) {
                   <div className="space-y-1.5">
                     <p className="text-[11px] text-slate-500">목표</p>
                     <div className="h-14 rounded-2xl border border-slate-200 shadow-inner" style={{ backgroundColor: targetHex }} />
-                    <code className="text-[11px] font-mono text-slate-600">{targetHex?.toUpperCase()}</code>
+                    <code className="text-[11px] font-mono text-slate-600">{String(targetHex || '').toUpperCase()}</code>
                   </div>
                   <div className="space-y-1.5">
-                    <p className="text-[11px] text-slate-500">Nearest (102색)</p>
+                    <p className="text-[11px] text-slate-500">Nearest</p>
                     <div
                       className="h-14 rounded-2xl border border-slate-200 shadow-inner"
                       style={{ backgroundColor: nearest?.hex ?? '#ffffff' }}
@@ -158,7 +112,7 @@ function FaberMixModal({ targetHex, open, onClose, onApplyNearestAsTarget }) {
                     <div className="flex items-center justify-between gap-2">
                       <span className="text-xs font-medium text-slate-700 truncate">{nearestLabel}</span>
                       <code className="text-[11px] font-mono text-slate-600 shrink-0">
-                        {nearest?.hex?.toUpperCase?.() ?? ''}
+                        {String(nearest?.hex || '').toUpperCase()}
                       </code>
                     </div>
                   </div>
@@ -168,17 +122,17 @@ function FaberMixModal({ targetHex, open, onClose, onApplyNearestAsTarget }) {
               {hasMix && (
                 <div className="rounded-2xl border border-slate-200 bg-slate-50/60 p-4 space-y-3">
                   <p className="text-[11px] font-semibold tracking-[0.15em] text-slate-500 uppercase">
-                    필요한 색상 비율 (102색 내부 조합)
+                    디지털 팔레트 · 필요 색상 비율 (최대 {MAX_MIX_COLORS}색)
                   </p>
                   <MixingAnimation parts={parts.map((p) => ({ ...p, key: p.key ?? p.hex }))} resultHex={mix.approximateHex} />
                   <div className="space-y-2">
                     {parts
                       .slice()
-                      .sort((a, b) => b.ratio - a.ratio)
-                      .map((p) => (
-                        <div key={p.key} className="flex items-center gap-3 text-sm text-slate-700">
+                      .sort((a, b) => (b.ratio || 0) - (a.ratio || 0))
+                      .map((p, i) => (
+                        <div key={p.key ?? `${p.hex}-${i}`} className="flex items-center gap-3 text-sm text-slate-700">
                           <div className="w-8 h-8 rounded-xl border border-white shadow-md shrink-0" style={{ backgroundColor: p.hex }} />
-                          <span className="font-medium min-w-[140px] truncate">{partLabel(p)}</span>
+                          <span className="font-medium min-w-[140px] truncate">{formatPartNameWithBadges(p)}</span>
                           <div className="flex-1 h-2 rounded-full bg-white/80 border border-slate-100 overflow-hidden">
                             <div
                               className="h-full rounded-full bg-gradient-to-r from-slate-300 to-slate-400"
@@ -208,10 +162,6 @@ function FaberMixModal({ targetHex, open, onClose, onApplyNearestAsTarget }) {
                   닫기
                 </button>
               </div>
-              <p className="text-[11px] text-slate-500 leading-relaxed">
-                팝업에서 선택한 <span className="font-medium">Nearest 색</span>을 목표색으로 설정하면,
-                곧바로 <span className="font-medium">기본색 조색(Default)</span> 화면으로 돌아가 실제 물감(기본색+물) 조색 비율을 확인할 수 있어요.
-              </p>
             </div>
           </div>
         </div>
@@ -220,4 +170,4 @@ function FaberMixModal({ targetHex, open, onClose, onApplyNearestAsTarget }) {
   );
 }
 
-export default FaberMixModal;
+export default BrandPaletteModal;

@@ -2,14 +2,16 @@ import React from 'react';
 import { Wand2 } from 'lucide-react';
 import ColorPickerPanel from './ColorPickerPanel';
 import PhotoToPalette from './PhotoToPalette';
+import CustomColorInput from './CustomColorInput';
 import BasePigmentsLegend from './BasePigmentsLegend';
+import { MIX_MODE_OPTIONS, getMixModeHint, isBrandMixMode } from '../utils/mixPools';
 
 function ColorPickerSection({
   targetHex,
   renderKey,
   mixMode,
   setMixMode,
-  setFaberModalOpen,
+  setPaletteModalOpen,
   handleColorUpdate,
   swatches,
   photoPickMode,
@@ -17,8 +19,8 @@ function ColorPickerSection({
   pigments
 }) {
   return (
-    <div className="space-y-6">
-      <div className="rounded-3xl bg-slate-50/80 border border-slate-100/80 p-4 md:p-5">
+    <div className="space-y-4">
+      <div className="rounded-3xl bg-slate-50/80 border border-slate-100/80 p-3 sm:p-4 md:p-5">
         <div className="flex items-center justify-between gap-3 mb-4">
           <div className="flex items-center gap-2">
             <div className="h-8 w-8 rounded-full bg-gradient-to-tr from-rose-300 via-amber-300 to-sky-300 flex items-center justify-center shadow-sm">
@@ -35,39 +37,28 @@ function ColorPickerSection({
           </div>
         </div>
 
-        <div className="mb-4">
-          <div className="inline-flex rounded-full bg-white/80 border border-slate-200 p-1 shadow-sm">
-            <button
-              type="button"
-              onClick={() => {
-                setMixMode('default');
-                setFaberModalOpen(false);
-              }}
-              className={`px-3 py-1.5 text-[11px] font-medium rounded-full transition-colors ${
-                mixMode === 'default'
-                  ? 'bg-slate-900 text-white'
-                  : 'text-slate-600 hover:text-slate-800'
-              }`}
-            >
-              기본색 조색 (Default)
-            </button>
-            <button
-              type="button"
-              onClick={() => setMixMode('faber')}
-              className={`px-3 py-1.5 text-[11px] font-medium rounded-full transition-colors ${
-                mixMode === 'faber'
-                  ? 'bg-slate-900 text-white'
-                  : 'text-slate-600 hover:text-slate-800'
-              }`}
-            >
-              파버카스텔 조색
-            </button>
+        <div className="mb-4 min-w-0">
+          <div className="flex items-center gap-1 rounded-full bg-white/80 border border-slate-200 p-1 shadow-sm overflow-x-auto overflow-y-hidden whitespace-nowrap no-scrollbar">
+            {MIX_MODE_OPTIONS.map((opt) => (
+              <button
+                key={opt.id}
+                type="button"
+                onClick={() => {
+                  setMixMode(opt.id);
+                  if (isBrandMixMode(opt.id)) setPaletteModalOpen(true);
+                  else setPaletteModalOpen(false);
+                }}
+                className={`shrink-0 px-2.5 py-1.5 text-[10px] sm:text-[11px] font-medium rounded-full transition-colors ${
+                  mixMode === opt.id
+                    ? 'bg-slate-900 text-white'
+                    : 'text-slate-600 hover:text-slate-800'
+                }`}
+              >
+                {opt.label}
+              </button>
+            ))}
           </div>
-          {mixMode === 'faber' && (
-            <p className="mt-2 text-[11px] text-slate-500">
-              목표색을 바꾸면 Faber 72 + Caran 30(102색)에서 가장 가까운 색과 추천 조합 팝업이 뜹니다.
-            </p>
-          )}
+          <p className="mt-2 text-[11px] text-slate-500">{getMixModeHint(mixMode)}</p>
         </div>
 
         <div className="flex flex-col sm:flex-row gap-4 items-stretch">
@@ -109,6 +100,8 @@ function ColorPickerSection({
           </div>
         </div>
       </div>
+
+      <CustomColorInput targetHex={targetHex} mixMode={mixMode} onApply={handleColorUpdate} />
 
       <PhotoToPalette
         targetHex={targetHex}

@@ -2,6 +2,9 @@ import React, { useRef, useCallback, useState, useEffect } from 'react';
 import { ImagePlus } from 'lucide-react';
 import { rgbToHex } from '../utils/mixing';
 import { normalizeHexColor } from '../utils/hexNormalize';
+import { colorSnapshot, emitColorSelect } from '../utils/colorFormats';
+import { extractPhotoPalette, findNearestSwatch } from '../utils/extractPhotoPalette';
+import ExtractedSwatchStrip from './ExtractedSwatchStrip';
 
 function getContainedImageRect(img) {
   const rect = img.getBoundingClientRect();
@@ -133,13 +136,22 @@ function getMagnifierSampleNorm({ img, centerNx, centerNy, localX, localY, magSi
  * @param {string} [targetHex] — 부모 현재 목표색(표시용)
  * @param {function(string): void} [onColorChange] — 권장: 단일 진실 공급원으로 HEX 전달
  */
-function PhotoToPalette({ targetHex, onColorChange, pickEnabled, onPickComplete }) {
+function PhotoToPalette({
+  targetHex,
+  onColorChange,
+  pickEnabled,
+  onPickComplete,
+  onPaletteExtracted
+}) {
   const canvasRef = useRef(null);
   const imgRef = useRef(null);
   const wrapRef = useRef(null);
   const magRef = useRef(null);
   const magWrapRef = useRef(null);
   const lastEmitRef = useRef({ at: 0, hex: '' });
+  const lastNormRef = useRef({ nx: 0.5, ny: 0.5 });
+  const markerRef = useRef(null);
+  const pixelsReadyRef = useRef(false);
 
   const [imageSrc, setImageSrc] = useState(null);
   const [pointerInsideImage, setPointerInsideImage] = useState(false);
@@ -149,6 +161,12 @@ function PhotoToPalette({ targetHex, onColorChange, pickEnabled, onPickComplete 
   const [touchFlash, setTouchFlash] = useState(false);
   const [tapDot, setTapDot] = useState(null); // { nx, ny, at }
   const [dragMag, setDragMag] = useState(false);
+  const [extractedSwatches, setExtractedSwatches] = useState([]);
+  const [activeSwatchHex, setActiveSwatchHex] = useState(null);
+  const [liveSampleHex, setLiveSampleHex] = useState(null);
+  const extractedSwatchesRef = useRef([]);
+  const liveRafRef = useRef(0);
+  const fileInputRef = useRef(null);
 
   const resizeImageFile = useCallback(async (file, maxWidth = 1200) => {
     const blobUrl = URL.createObjectURL(file);
@@ -199,19 +217,26 @@ function PhotoToPalette({ targetHex, onColorChange, pickEnabled, onPickComplete 
     }
   }, []);
 
-  const sampleHexAtNormAsync = useCallback(async (nx, ny) => {
+  const sampleHexAtNorm = useCallback((nx, ny) => {
     const img = imgRef.current;
     const canvas = canvasRef.current;
     if (!img || !canvas || !img.naturalWidth) return null;
     try {
       const ctx = canvas.getContext('2d', { willReadFrequently: true });
-      canvas.width = img.naturalWidth;
-      canvas.height = img.naturalHeight;
-      ctx.drawImage(img, 0, 0);
-      // iOS Safari: give the browser a tick to finalize the draw before getImageData.
-      await new Promise((r) => window.setTimeout(r, 0));
-      const x = Math.min(img.naturalWidth - 1, Math.max(0, Math.floor(nx * img.naturalWidth)));
-      const y = Math.min(img.naturalHeight - 1, Math.max(0, Math.floor(ny * img.naturalHeight)));
+      const maxDim = 400;
+      const nw = img.naturalWidth;
+      const nh = img.naturalHeight;
+      const scale = Math.min(1, maxDim / Math.max(nw, nh));
+      const w = Math.max(1, Math.round(nw * scale));
+      const h = Math.max(1, Math.round(nh * scale));
+      if (!pixelsReadyRef.current || canvas.width !== w) {
+        canvas.width = w;
+        canvas.height = h;
+        ctx.drawImage(img, 0, 0, w, h);
+        pixelsReadyRef.current = true;
+      }
+      const x = Math.min(w - 1, Math.max(0, Math.floor(nx * w)));
+      const y = Math.min(h - 1, Math.max(0, Math.floor(ny * h)));
       const data = ctx.getImageData(x, y, 1, 1).data;
       return rgbToHex([data[0] / 255, data[1] / 255, data[2] / 255]);
     } catch {
@@ -231,47 +256,38 @@ function PhotoToPalette({ targetHex, onColorChange, pickEnabled, onPickComplete 
     lastEmitRef.current = { at: now, hex: newHex };
 
     if (typeof onColorChange === 'function') {
-      onColorChange(newHex);
+      onColorChange(newHex, { openPalette: false });
     }
+    emitColorSelect(colorSnapshot(newHex, { source: 'photo-pick', action: 'mix' }));
+    setActiveSwatchHex(newHex);
     setHasPickedOnce(true);
   }, [onColorChange]);
 
-  const tryPickAtNormAsync = useCallback(
-    async (nx, ny) => {
-      const hexRaw = await sampleHexAtNormAsync(nx, ny);
-      if (!hexRaw) return false;
-      const extractedHex = normalizeHexColor(hexRaw);
-      console.log('TRACE [Photo]: 사진 클릭 ->', extractedHex);
-      setPickedNorm({ nx, ny });
-      setTapDot({ nx, ny, at: Date.now() });
-      window.setTimeout(() => setTapDot(null), 260);
-      reportHexToParent(extractedHex);
-      queueMicrotask(() => onPickComplete?.());
-      return true;
-    },
-    [onPickComplete, reportHexToParent, sampleHexAtNormAsync]
-  );
+  const pendingHexRef = useRef(null);
 
-  const pickAtNormWithRetry = useCallback(
-    (nx, ny) => {
-      let cancelled = false;
-      const retry = (left) => {
-        if (cancelled) return;
-        if (left <= 0) return;
-        requestAnimationFrame(async () => {
-          if (cancelled) return;
-          const ok = await tryPickAtNormAsync(nx, ny);
-          if (ok) return;
-          retry(left - 1);
-        });
-      };
-      retry(5);
-      return () => {
-        cancelled = true;
-      };
-    },
-    [tryPickAtNormAsync]
-  );
+  const syncSwatchToSample = useCallback((hex) => {
+    if (!hex) return;
+    pendingHexRef.current = hex;
+    if (liveRafRef.current) return;
+    liveRafRef.current = requestAnimationFrame(() => {
+      liveRafRef.current = 0;
+      const h = pendingHexRef.current;
+      if (!h) return;
+      setLiveSampleHex(h);
+      const near = findNearestSwatch(h, extractedSwatchesRef.current);
+      if (near?.hex) setActiveSwatchHex(near.hex);
+    });
+  }, []);
+
+  const commitPickAtLoupe = useCallback(() => {
+    const { nx, ny } = lastNormRef.current;
+    const hexRaw = sampleHexAtNorm(nx, ny);
+    if (!hexRaw) return;
+    const hex = normalizeHexColor(hexRaw);
+    setPickedNorm({ nx, ny });
+    syncSwatchToSample(hex);
+    reportHexToParent(hex);
+  }, [reportHexToParent, sampleHexAtNorm, syncSwatchToSample]);
 
   const handleFileChange = (e) => {
     const file = e.target.files?.[0];
@@ -285,168 +301,95 @@ function PhotoToPalette({ targetHex, onColorChange, pickEnabled, onPickComplete 
       });
       setPickedNorm(null);
       setHasPickedOnce(false);
+      setExtractedSwatches([]);
+      setActiveSwatchHex(null);
+      setLiveSampleHex(null);
+      extractedSwatchesRef.current = [];
+      pixelsReadyRef.current = false;
+      e.target.value = '';
     })();
   };
 
-  const updateHoverFromEvent = useCallback(
-    (e) => {
-      const img = imgRef.current;
-      if (!img || !imageSrc) return;
-      const hit = clientToNorm(e.clientX, e.clientY, img);
-      if (!hit) {
-        setHoverNorm(null);
-        return;
-      }
-      setHoverNorm({ nx: hit.nx, ny: hit.ny });
-      drawMagnifier({ img, magCanvas: magRef.current, nx: hit.nx, ny: hit.ny });
-    },
-    [imageSrc]
-  );
-
-  const handleImagePick = useCallback(
-    (e) => {
-      if (!pickEnabled) return;
-      const img = imgRef.current;
-      if (!img || !imageSrc) return;
-      const hit = clientToNorm(e.clientX, e.clientY, img);
-      if (!hit) return;
-      e.preventDefault();
-      setTapDot({ nx: hit.nx, ny: hit.ny, at: Date.now() });
-      window.setTimeout(() => setTapDot(null), 260);
-      pickAtNormWithRetry(hit.nx, hit.ny);
-    },
-    [imageSrc, pickAtNormWithRetry, pickEnabled]
-  );
+  const updateLoupeFromClient = useCallback((clientX, clientY) => {
+    const img = imgRef.current;
+    const wrap = wrapRef.current;
+    if (!img || !imageSrc) return null;
+    const hit = clientToNormClamped(clientX, clientY, img);
+    if (!hit) return null;
+    lastNormRef.current = { nx: hit.nx, ny: hit.ny };
+    drawMagnifier({ img, magCanvas: magRef.current, nx: hit.nx, ny: hit.ny });
+    const sampleHex = sampleHexAtNorm(hit.nx, hit.ny);
+    if (sampleHex) syncSwatchToSample(sampleHex);
+    const marker = markerRef.current;
+    if (marker && wrap) {
+      const wrapRect = wrap.getBoundingClientRect();
+      const box = 10;
+      marker.style.left = `${hit.ox - wrapRect.left + hit.nx * hit.dw - box / 2}px`;
+      marker.style.top = `${hit.oy - wrapRect.top + hit.ny * hit.dh - box / 2}px`;
+      marker.style.opacity = '1';
+    }
+    return hit;
+  }, [imageSrc, sampleHexAtNorm, syncSwatchToSample]);
 
   const handleImageTouchStart = useCallback(
     (e) => {
-      if (!pickEnabled) return;
-      const img = imgRef.current;
-      if (!img || !imageSrc) return;
       const t = e.touches?.[0] || e.changedTouches?.[0];
       if (!t) return;
-      // iOS Safari: avoid long-press callout interfering with sampling.
-      // Don't rely on preventDefault (may be passive); just sample coordinates.
-      const hit = clientToNorm(t.clientX, t.clientY, img);
-      if (!hit) return;
-      setTapDot({ nx: hit.nx, ny: hit.ny, at: Date.now() });
-      window.setTimeout(() => setTapDot(null), 260);
-      pickAtNormWithRetry(hit.nx, hit.ny);
+      updateLoupeFromClient(t.clientX, t.clientY);
     },
-    [imageSrc, pickAtNormWithRetry, pickEnabled]
+    [updateLoupeFromClient]
   );
 
-  // iOS Safari: React touch events can be passive by default.
-  // Attach a native touchstart listener with { passive: false }.
   useEffect(() => {
     const img = imgRef.current;
     const wrap = wrapRef.current;
     if (!img || !wrap) return;
 
     const onNativeTouchStart = (evt) => {
-      if (!pickEnabled) return;
-      // critical: passive:false enables preventDefault
-      try {
-        evt.preventDefault();
-      } catch {
-        // ignore
-      }
       const touch = evt.touches?.[0] || evt.changedTouches?.[0];
       if (!touch) return;
-      const hitAny = clientToNormClamped(touch.clientX, touch.clientY, img);
-      if (!hitAny) return;
-      setTouchFlash(true);
-      window.setTimeout(() => setTouchFlash(false), 140);
-      // Always show the dot (even if outside image rect) so user can see touch is detected.
-      setTapDot({ nx: hitAny.nx, ny: hitAny.ny, at: Date.now() });
-      window.setTimeout(() => setTapDot(null), 260);
-      if (hitAny.inside) {
-        pickAtNormWithRetry(hitAny.nx, hitAny.ny);
+      if (pickEnabled) {
+        try {
+          evt.preventDefault();
+        } catch {
+          // ignore
+        }
       }
+      const hit = updateLoupeFromClient(touch.clientX, touch.clientY);
     };
 
-    // Attach to wrapper (more reliable on iOS than <img> alone), capture to win race with browser.
+    const onNativeTouchMove = (evt) => {
+      const touch = evt.touches?.[0] || evt.changedTouches?.[0];
+      if (!touch) return;
+      if (pickEnabled) {
+        try {
+          evt.preventDefault();
+        } catch {
+          // ignore
+        }
+      }
+      updateLoupeFromClient(touch.clientX, touch.clientY);
+    };
+
+    const onNativeTouchEnd = () => {
+      if (pickEnabled) commitPickAtLoupe();
+    };
+
     wrap.addEventListener('touchstart', onNativeTouchStart, { passive: false, capture: true });
+    wrap.addEventListener('touchmove', onNativeTouchMove, { passive: false, capture: true });
+    wrap.addEventListener('touchend', onNativeTouchEnd, { passive: true, capture: true });
     img.addEventListener('touchstart', onNativeTouchStart, { passive: false, capture: true });
+    img.addEventListener('touchmove', onNativeTouchMove, { passive: false, capture: true });
+    img.addEventListener('touchend', onNativeTouchEnd, { passive: true, capture: true });
     return () => {
       wrap.removeEventListener('touchstart', onNativeTouchStart, { capture: true });
+      wrap.removeEventListener('touchmove', onNativeTouchMove, { capture: true });
+      wrap.removeEventListener('touchend', onNativeTouchEnd, { capture: true });
       img.removeEventListener('touchstart', onNativeTouchStart, { capture: true });
+      img.removeEventListener('touchmove', onNativeTouchMove, { capture: true });
+      img.removeEventListener('touchend', onNativeTouchEnd, { capture: true });
     };
-  }, [pickEnabled, pickAtNormWithRetry]);
-
-  const pickFromMagnifierEvent = useCallback(
-    (e) => {
-      if (!pickEnabled) return;
-      const img = imgRef.current;
-      const mag = magRef.current;
-      if (!img || !mag) return;
-      const base = pickedNorm || hoverNorm || { nx: 0.5, ny: 0.5 };
-      const rect = mag.getBoundingClientRect();
-      const localX = e.clientX - rect.left;
-      const localY = e.clientY - rect.top;
-      const hit = getMagnifierSampleNorm({
-        img,
-        centerNx: base.nx,
-        centerNy: base.ny,
-        localX,
-        localY,
-        magSize: rect.width
-      });
-      if (!hit) return;
-      setTapDot({ nx: hit.nx, ny: hit.ny, at: Date.now() });
-      window.setTimeout(() => setTapDot(null), 260);
-      setPickedNorm({ nx: hit.nx, ny: hit.ny });
-      pickAtNormWithRetry(hit.nx, hit.ny);
-    },
-    [hoverNorm, pickAtNormWithRetry, pickEnabled, pickedNorm]
-  );
-
-  // iOS Safari: magnifier 영역에서도 pointer 이벤트가 안 들어오는 경우가 있어 native touch로 보강합니다.
-  useEffect(() => {
-    const wrap = magWrapRef.current;
-    if (!wrap) return;
-
-    const onMagTouchStart = (evt) => {
-      if (!pickEnabled) return;
-      try {
-        evt.preventDefault();
-      } catch {
-        // ignore
-      }
-      const touch = evt.touches?.[0] || evt.changedTouches?.[0];
-      if (!touch) return;
-      // synthesize minimal event object for existing picker
-      pickFromMagnifierEvent({ clientX: touch.clientX, clientY: touch.clientY });
-    };
-
-    const onMagTouchMove = (evt) => {
-      if (!pickEnabled || !dragMag) return;
-      try {
-        evt.preventDefault();
-      } catch {
-        // ignore
-      }
-      const touch = evt.touches?.[0] || evt.changedTouches?.[0];
-      if (!touch) return;
-      pickFromMagnifierEvent({ clientX: touch.clientX, clientY: touch.clientY });
-    };
-
-    const onMagTouchEnd = () => {
-      if (!pickEnabled) return;
-      setDragMag(false);
-    };
-
-    wrap.addEventListener('touchstart', onMagTouchStart, { passive: false, capture: true });
-    wrap.addEventListener('touchmove', onMagTouchMove, { passive: false, capture: true });
-    wrap.addEventListener('touchend', onMagTouchEnd, { passive: true, capture: true });
-    wrap.addEventListener('touchcancel', onMagTouchEnd, { passive: true, capture: true });
-    return () => {
-      wrap.removeEventListener('touchstart', onMagTouchStart, { capture: true });
-      wrap.removeEventListener('touchmove', onMagTouchMove, { capture: true });
-      wrap.removeEventListener('touchend', onMagTouchEnd, { capture: true });
-      wrap.removeEventListener('touchcancel', onMagTouchEnd, { capture: true });
-    };
-  }, [dragMag, pickEnabled, pickFromMagnifierEvent]);
+  }, [pickEnabled, updateLoupeFromClient, commitPickAtLoupe]);
 
   const clearImage = () => {
     setImageSrc((prev) => {
@@ -455,111 +398,150 @@ function PhotoToPalette({ targetHex, onColorChange, pickEnabled, onPickComplete 
     });
     setPickedNorm(null);
     setHoverNorm(null);
+    setExtractedSwatches([]);
+    setActiveSwatchHex(null);
+    setLiveSampleHex(null);
+    extractedSwatchesRef.current = [];
+    pixelsReadyRef.current = false;
   };
 
   useEffect(() => () => imageSrc && URL.revokeObjectURL(imageSrc), [imageSrc]);
 
   useEffect(() => {
-    if (!imageSrc || !imgRef.current || !magRef.current) return;
+    if (!imageSrc) return undefined;
     const img = imgRef.current;
-    const norm = hoverNorm || pickedNorm || { nx: 0.5, ny: 0.5 };
-    drawMagnifier({ img, magCanvas: magRef.current, nx: norm.nx, ny: norm.ny });
-  }, [imageSrc, hoverNorm, pickedNorm]);
+    if (!img) return undefined;
+    let cancelled = false;
 
-  const displayMarkerNorm = pickedNorm || hoverNorm;
+    const runExtract = () => {
+      if (cancelled || !img.naturalWidth) return;
+      try {
+        const palette = extractPhotoPalette(img, { maxColors: 48 });
+        if (cancelled) return;
+        extractedSwatchesRef.current = palette;
+        setExtractedSwatches(palette);
+        if (palette[0]?.hex) setActiveSwatchHex(palette[0].hex);
+        if (typeof onPaletteExtracted === 'function') onPaletteExtracted(palette);
+      } catch {
+        if (!cancelled) {
+          extractedSwatchesRef.current = [];
+          setExtractedSwatches([]);
+        }
+      }
+    };
+
+    const start = () => {
+      window.setTimeout(runExtract, 50);
+    };
+    if (img.complete && img.naturalWidth) {
+      start();
+    } else {
+      img.addEventListener('load', start);
+    }
+    return () => {
+      cancelled = true;
+      img.removeEventListener('load', start);
+    };
+  }, [imageSrc, onPaletteExtracted]);
+
+  useEffect(() => {
+    if (!imageSrc || !imgRef.current || !magRef.current) return;
+    const n = lastNormRef.current;
+    drawMagnifier({ img: imgRef.current, magCanvas: magRef.current, nx: n.nx, ny: n.ny });
+  }, [imageSrc]);
 
   return (
-    <div className="rounded-3xl bg-slate-50/80 border border-slate-100/80 p-4 md:p-5 shadow-md">
-      <div className="flex items-center justify-between mb-3">
+    <div className="rounded-3xl bg-slate-50/80 border border-slate-100/80 p-3 sm:p-4 shadow-md">
+      <div className="flex items-center justify-between mb-2">
         <div className="flex items-center gap-2">
-          <div className="h-8 w-8 rounded-full bg-gradient-to-tr from-violet-300 via-fuchsia-300 to-pink-300 flex items-center justify-center shadow-sm">
-            <ImagePlus size={18} className="text-white drop-shadow-sm" />
+          <div className="h-7 w-7 rounded-full bg-gradient-to-tr from-violet-300 via-fuchsia-300 to-pink-300 flex items-center justify-center shadow-sm">
+            <ImagePlus size={14} className="text-white drop-shadow-sm" />
           </div>
           <div>
-            <p className="text-xs font-semibold tracking-[0.18em] text-slate-500 uppercase">
+            <p className="text-[10px] font-semibold tracking-[0.18em] text-slate-500 uppercase">
               Photo to Palette
             </p>
-            <p className="text-[11px] text-slate-500">
-              스포이드 활성 시 사진 또는 오른쪽 확대 격자를 탭해 색을 추출합니다.
+            <p className="text-[10px] text-slate-500">
+              스와치를 밀어 더 많은 색을 보고, 스포이드를 켠 뒤 사진을 문지르면 확대가 따라갑니다.
             </p>
           </div>
         </div>
       </div>
 
+      <input
+        ref={fileInputRef}
+        type="file"
+        accept="image/*"
+        onChange={handleFileChange}
+        className="sr-only"
+        aria-label="이미지 업로드"
+      />
+
       {!imageSrc ? (
-        <label className="flex flex-col items-center justify-center gap-2 rounded-2xl border-2 border-dashed border-slate-200 bg-white/60 hover:border-slate-300 hover:bg-slate-50/80 cursor-pointer p-6 transition-colors paint-swatch">
+        <button
+          type="button"
+          onClick={() => fileInputRef.current?.click()}
+          className="flex w-full flex-col items-center justify-center gap-2 rounded-2xl border-2 border-dashed border-slate-200 bg-white/60 hover:border-slate-300 hover:bg-slate-50/80 cursor-pointer p-6 transition-colors"
+        >
           <ImagePlus size={32} className="text-slate-400" />
           <span className="text-xs font-medium text-slate-600">사진 업로드</span>
           <span className="text-[11px] text-slate-400">JPG, PNG 등 이미지 파일</span>
-          <input
-            type="file"
-            accept="image/*"
-            onChange={handleFileChange}
-            className="sr-only"
-            aria-label="이미지 업로드"
-          />
-        </label>
+        </button>
       ) : (
-        <div className="space-y-2">
+        <div className="relative rounded-2xl overflow-hidden border border-slate-200 bg-white shadow-sm">
           <div
-            className={`flex flex-col sm:flex-row gap-2 items-start rounded-2xl border border-slate-100/80 bg-white/50 p-2 shadow-inner ${
-              pickEnabled ? 'ring-2 ring-sky-300/80' : ''
-            }`}
+            ref={wrapRef}
+            className={`relative bg-slate-100 ${pickEnabled ? 'ring-2 ring-inset ring-sky-300/80' : ''}`}
           >
-            <div
-              ref={wrapRef}
-              className="relative flex-1 min-w-0 rounded-xl overflow-hidden paint-swatch max-h-48"
-            >
               <img
                 ref={imgRef}
                 src={imageSrc}
                 alt="업로드된 사진"
                 crossOrigin="anonymous"
-                className={`w-full h-auto max-h-48 object-contain mx-auto block touch-manipulation ${
-                  pickEnabled ? 'cursor-crosshair' : 'cursor-default'
-                }`}
-                style={{
-                  // When sampling, disable browser gestures so touchstart is delivered reliably.
-                  touchAction: pickEnabled ? 'none' : 'manipulation',
-                  WebkitTouchCallout: 'none',
-                  WebkitUserSelect: 'none',
-                  userSelect: 'none'
-                }}
-                draggable={false}
-                onDragStart={(e) => e.preventDefault()}
-                onContextMenu={(e) => e.preventDefault()}
-                onLoad={(e) => {
-                  const img = e.currentTarget;
-                  if (hoverNorm) {
-                    drawMagnifier({
-                      img,
-                      magCanvas: magRef.current,
-                      nx: hoverNorm.nx,
-                      ny: hoverNorm.ny
-                    });
-                  }
-                }}
-                onPointerEnter={(e) => {
-                  setPointerInsideImage(true);
-                  updateHoverFromEvent(e);
-                }}
-                onPointerLeave={() => {
-                  setPointerInsideImage(false);
-                  setHoverNorm(null);
-                  const ctx = magRef.current?.getContext('2d');
-                  if (ctx && magRef.current) ctx.clearRect(0, 0, magRef.current.width, magRef.current.height);
-                }}
-                onPointerMove={updateHoverFromEvent}
-                onPointerDown={handleImagePick}
-                onClick={handleImagePick}
-                onTouchStart={handleImageTouchStart}
+              className={`w-full h-auto max-h-40 sm:max-h-52 object-contain mx-auto block touch-manipulation ${
+                pickEnabled ? 'cursor-crosshair' : 'cursor-default'
+              }`}
+              style={{
+                touchAction: pickEnabled ? 'none' : 'manipulation',
+                WebkitTouchCallout: 'none',
+                WebkitUserSelect: 'none',
+                userSelect: 'none'
+              }}
+              draggable={false}
+              onDragStart={(e) => e.preventDefault()}
+              onContextMenu={(e) => e.preventDefault()}
+              onLoad={(e) => {
+                const img = e.currentTarget;
+                const n = lastNormRef.current;
+                drawMagnifier({ img, magCanvas: magRef.current, nx: n.nx, ny: n.ny });
+              }}
+              onPointerEnter={(e) => {
+                setPointerInsideImage(true);
+                updateLoupeFromClient(e.clientX, e.clientY);
+              }}
+              onPointerLeave={() => {
+                setPointerInsideImage(false);
+              }}
+              onPointerMove={(e) => updateLoupeFromClient(e.clientX, e.clientY)}
+              onPointerDown={(e) => {
+                try {
+                  e.currentTarget.setPointerCapture(e.pointerId);
+                } catch {
+                  // ignore
+                }
+                updateLoupeFromClient(e.clientX, e.clientY);
+              }}
+              onPointerUp={() => {
+                if (pickEnabled) commitPickAtLoupe();
+              }}
+              onTouchStart={handleImageTouchStart}
               />
 
               {/* dim overlay (very subtle, never blocks viewing) */}
               <div
                 className="absolute inset-0 pointer-events-none transition-opacity duration-150"
                 style={{
-                  opacity: pointerInsideImage ? 0.04 : 0.12,
+                  opacity: pointerInsideImage ? 0.02 : 0.04,
                   background: 'rgba(0,0,0,0.10)'
                 }}
               />
@@ -573,128 +555,58 @@ function PhotoToPalette({ targetHex, onColorChange, pickEnabled, onPickComplete 
                 }}
               />
 
-              {displayMarkerNorm &&
-                imgRef.current &&
-                wrapRef.current &&
-                (() => {
-                  const g = getContainedImageRect(imgRef.current);
-                  const wrapRect = wrapRef.current.getBoundingClientRect();
-                  if (!g) return null;
-                  const box = 10;
-                  const left = g.ox - wrapRect.left + displayMarkerNorm.nx * g.dw - box / 2;
-                  const top = g.oy - wrapRect.top + displayMarkerNorm.ny * g.dh - box / 2;
-                  return (
-                    <div
-                      className="absolute pointer-events-none rounded-sm border-2 border-white shadow-md"
-                      style={{
-                        left,
-                        top,
-                        width: box,
-                        height: box,
-                        boxShadow: '0 0 0 1px rgba(0,0,0,0.5)'
-                      }}
-                    />
-                  );
-                })()}
+              <div
+                ref={markerRef}
+                className="absolute pointer-events-none rounded-sm border-2 border-white shadow-md opacity-0"
+                style={{
+                  width: 10,
+                  height: 10,
+                  boxShadow: '0 0 0 1px rgba(0,0,0,0.5)'
+                }}
+              />
 
-              {/* debugging: red tap dot */}
-              {tapDot &&
-                imgRef.current &&
-                wrapRef.current &&
-                (() => {
-                  const g = getContainedImageRect(imgRef.current);
-                  const wrapRect = wrapRef.current.getBoundingClientRect();
-                  if (!g) return null;
-                  const d = 6;
-                  const left = g.ox - wrapRect.left + tapDot.nx * g.dw - d / 2;
-                  const top = g.oy - wrapRect.top + tapDot.ny * g.dh - d / 2;
-                  return (
-                    <div
-                      className="absolute pointer-events-none rounded-full"
-                      style={{
-                        left,
-                        top,
-                        width: d,
-                        height: d,
-                        background: 'rgba(255,0,0,0.95)',
-                        boxShadow: '0 0 0 2px rgba(255,255,255,0.85), 0 2px 6px rgba(0,0,0,0.35)'
-                      }}
-                    />
-                  );
-                })()}
-            </div>
-
-            <div className="w-full sm:w-auto shrink-0 flex flex-col items-center gap-1 pt-1">
+            <div className="absolute right-1.5 top-1.5 z-10 pointer-events-none">
               <div
                 ref={magWrapRef}
-                role="button"
-                tabIndex={pickEnabled ? 0 : -1}
-                onKeyDown={(e) => {
-                  if (!pickEnabled) return;
-                  if (e.key === 'Enter' || e.key === ' ') {
-                    e.preventDefault();
-                    const norm = pickedNorm || hoverNorm || { nx: 0.5, ny: 0.5 };
-                    setTapDot({ nx: norm.nx, ny: norm.ny, at: Date.now() });
-                    window.setTimeout(() => setTapDot(null), 260);
-                    pickAtNormWithRetry(norm.nx, norm.ny);
-                  }
-                }}
-                onPointerDownCapture={(e) => {
-                  if (!pickEnabled) return;
-                  e.currentTarget.setPointerCapture(e.pointerId);
-                  setDragMag(true);
-                  pickFromMagnifierEvent(e);
-                }}
-                onPointerMove={(e) => {
-                  if (!pickEnabled || !dragMag) return;
-                  pickFromMagnifierEvent(e);
-                }}
-                onPointerUp={() => setDragMag(false)}
-                onPointerCancel={() => setDragMag(false)}
-                className={`rounded-full border-2 border-slate-200 bg-slate-900/5 overflow-hidden shadow-md w-[92px] h-[92px] sm:w-[96px] sm:h-[96px] ${
-                  pickEnabled ? 'cursor-crosshair ring-offset-2 ring-sky-200/80' : 'cursor-default'
-                }`}
-                style={{ touchAction: pickEnabled ? 'none' : 'manipulation' }}
-                aria-label={pickEnabled ? '확대 격자에서 색 추출' : '확대 미리보기'}
+                className="rounded-full border-2 border-white/90 overflow-hidden shadow-md w-14 h-14"
+                aria-hidden
               >
-                <canvas ref={magRef} width={96} height={96} className="w-full h-full block pointer-events-none" />
+                <canvas ref={magRef} width={96} height={96} className="w-full h-full block" />
               </div>
-              <span className="text-[9px] text-slate-400 text-center leading-tight px-0.5">
-                확대 · 촘촘한 격자
-              </span>
-            </div>
-          </div>
-
-          {/* tip moved below image: disappears after first successful pick */}
-          {!hasPickedOnce && (
-            <div className="text-center text-xs text-slate-500">
-              {pickEnabled
-                ? '사진/확대창을 탭해 색을 추출하세요.'
-                : '스포이드를 켠 뒤 사진에서 색을 찍으세요.'}
-            </div>
-          )}
-
-          <div className="text-center text-xs text-slate-500">
-            선택한 색상이 실시간으로 조색 엔진에 반영됩니다.
-          </div>
-
-          <div className="flex justify-between items-center text-[11px] text-slate-500">
-            <div className="flex items-center gap-2">
-              <span>목표 색은 App의 targetHex와 동기화됩니다.</span>
-              <code className="rounded-full bg-white/90 border border-slate-200 px-2 py-0.5 text-[10px] font-mono text-slate-700">
-                {(targetHex || '#000000').toUpperCase()}
-              </code>
             </div>
             <button
               type="button"
-              onClick={clearImage}
-              className="text-slate-400 hover:text-slate-600 underline shrink-0"
+              onClick={() => fileInputRef.current?.click()}
+              className="absolute left-1.5 top-1.5 z-20 h-8 w-8 rounded-full bg-sky-500 text-white shadow-md flex items-center justify-center"
+              aria-label="다른 사진 업로드"
             >
-              이미지 제거
+              <ImagePlus size={16} />
             </button>
           </div>
+
+          <ExtractedSwatchStrip
+            swatches={extractedSwatches}
+            selectedHex={activeSwatchHex}
+            liveHex={liveSampleHex}
+            onSelect={(swatch) => {
+              if (!swatch?.hex) return;
+              setActiveSwatchHex(swatch.hex);
+              setLiveSampleHex(swatch.hex);
+              reportHexToParent(swatch.hex);
+            }}
+          />
         </div>
       )}
+
+      {imageSrc ? (
+        <div className="mt-1.5 flex justify-between items-center text-[10px] text-slate-500">
+          <span>{extractedSwatches.length ? `${extractedSwatches.length}색 · 가로로 밀어 보세요` : '추출 중…'}</span>
+          <button type="button" onClick={clearImage} className="text-slate-400 hover:text-slate-600 underline shrink-0">
+            이미지 제거
+          </button>
+        </div>
+      ) : null}
+
       <canvas ref={canvasRef} className="hidden" />
     </div>
   );
