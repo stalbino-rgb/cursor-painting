@@ -66,6 +66,7 @@ function ColorDetailModal({ color, onClose, onApplyToTarget }) {
   if (!color) return null;
 
   const hex = safeHex(color.hex);
+  const rgb = toRgb255(hex);
   const parts = live.partsToShow?.length ? live.partsToShow : solverParts;
   const resultHex = live.adjustedHex || mix?.approximateHex || hex;
   const resultRgb = toRgb255(resultHex);
@@ -102,6 +103,9 @@ function ColorDetailModal({ color, onClose, onApplyToTarget }) {
                   </h2>
                   {koName ? <p className="text-sm text-slate-500 truncate">{koName}</p> : null}
                   <p className="text-sm font-mono text-slate-500">{hex.toUpperCase()}</p>
+                  <p className="text-[12px] font-mono text-slate-500">
+                    RGB {rgb.r} {rgb.g} {rgb.b}
+                  </p>
                   {brandMeta ? (
                     <p className="text-[11px] text-slate-500 mt-0.5">{brandMeta.label} 등록 색상</p>
                   ) : (

@@ -17,6 +17,11 @@ export {
 };
 
 const GENERIC_COLOR_LIBRARY = [
+  { name: '기본색 레드', koName: '기본색 레드', hex: '#D7263D', brand: '기본색' },
+  { name: '기본색 엘로우', koName: '기본색 엘로우', hex: '#F6C035', brand: '기본색' },
+  { name: '기본색 블루', koName: '기본색 블루', hex: '#225CAD', brand: '기본색' },
+  { name: '기본색 화이트', koName: '기본색 화이트', hex: '#FDFDFD', brand: '기본색' },
+  { name: '기본색 블랙', koName: '기본색 블랙', hex: '#111111', brand: '기본색' },
   // === Pigment Reds & Crimsons ===
   { name: 'Alizarin Crimson', koName: '알리자린 크림슨', hex: '#E32636' },
   { name: 'Crimson', hex: '#DC143C' },
