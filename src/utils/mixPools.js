@@ -85,10 +85,11 @@ export function detectColorMixMode(color) {
 }
 
 export function getMixModeHint(mixMode) {
-  if (mixMode === 'faber') return '파버카스텔 72 + 카란다시 30 풀에서 최대 4색으로 조색합니다.';
-  if (mixMode === 'prisma') return '프리즈마 Premier 72색 풀에서 최대 4색으로 조색합니다.';
-  if (mixMode === 'shield') return '쉴드 에픽 아크릴 36색 풀에서 최대 4색으로 조색합니다.';
-  if (mixMode === 'mijello') return '미젤로 미션골드 34색 풀에서 최대 4색으로 조색합니다.';
-  if (mixMode === 'shinhan') return '신한 SWC 32색 풀에서 최대 4색으로 조색합니다.';
-  return 'Base Colors 6색 풀에서 최대 4색으로 조색합니다.';
+  const extra = '안료는 최대 4색이며, 물은 한도에 넣지 않아 물 포함 시 총 5가지까지 섞을 수 있습니다.';
+  if (mixMode === 'faber') return `파버카스텔 72 + 카란다시 30 풀에서 조색합니다. ${extra}`;
+  if (mixMode === 'prisma') return `프리즈마 Premier 72색 풀에서 조색합니다. ${extra}`;
+  if (mixMode === 'shield') return `쉴드 에픽 아크릴 36색 풀에서 조색합니다. ${extra}`;
+  if (mixMode === 'mijello') return `미젤로 미션골드 34색 풀에서 조색합니다. ${extra}`;
+  if (mixMode === 'shinhan') return `신한 SWC 32색 풀에서 조색합니다. ${extra}`;
+  return `Base Colors에서 조색합니다. ${extra}`;
 }

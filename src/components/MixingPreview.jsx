@@ -1,5 +1,7 @@
 import React from 'react';
 import { Info } from 'lucide-react';
+import MixRatioEditor from './MixRatioEditor';
+import { toRgb255 } from '../utils/colorFormats';
 
 function formatPercent(v) {
   return `${(v * 100).toFixed(0)}%`;
@@ -9,17 +11,14 @@ function MixingPreview({
   containerKey,
   baseMix,
   adjustedHex,
-  adjustedMix,
   partsToShow,
   hasMix,
   waterAmount,
   setWaterAmount,
-  PIGMENT_LIST,
-  adjustments,
-  adjustedPartsByKey,
-  onChangePigmentFactor,
-  showPigmentSliders = true
+  onChangePartWeight
 }) {
+  const rgb = toRgb255(adjustedHex);
+
   return (
     <div key={containerKey} className="rounded-3xl bg-slate-950/95 text-slate-50 p-4 md:p-5 shadow-xl">
       <div className="flex items-center justify-between mb-4">
@@ -33,7 +32,7 @@ function MixingPreview({
         </div>
         <div className="flex items-center gap-2 text-[11px] text-slate-400">
           <Info size={13} />
-          감산 혼합 · 최대 4색
+          안료 최대 4색 · 물 별도
         </div>
       </div>
 
@@ -65,11 +64,14 @@ function MixingPreview({
                 }}
               />
             </div>
-            <div className="px-3 py-2.5 flex items-center justify-between text-[11px] text-slate-300">
-              <span>조색 근사값{adjustedMix ? ' (조정 반영)' : ''}</span>
-              <code className="font-mono">
-                {adjustedHex.toUpperCase()}
-              </code>
+            <div className="px-3 py-2.5 text-[11px] text-slate-300 space-y-0.5">
+              <div className="flex items-center justify-between">
+                <span>조색 근사값</span>
+                <code className="font-mono">{adjustedHex.toUpperCase()}</code>
+              </div>
+              <p className="font-mono text-slate-400 text-right">
+                RGB {rgb.r} {rgb.g} {rgb.b}
+              </p>
             </div>
           </div>
         </div>
@@ -122,63 +124,16 @@ function MixingPreview({
               ))}
             </div>
 
-            {showPigmentSliders && (
-            <div className="mt-1 pt-3 border-t border-slate-800/70 space-y-2">
-              <p className="text-[11px] font-medium tracking-[0.18em] text-slate-400 uppercase">
-                비율 조절
-              </p>
-              <p className="text-[11px] text-slate-400 mb-1">
-                특정 색 물감을 더하거나 덜 넣었을 때 결과가 어떻게 달라지는지 슬라이더로
-                시뮬레이션해 보세요. (기본값 100%)
-              </p>
-              <div className="space-y-3">
-                {PIGMENT_LIST.map((p) => {
-                  const factor = adjustments[p.key] ?? 1;
-                  const current = adjustedPartsByKey[p.key]?.ratio ?? 0;
-                  return (
-                    <div key={p.key} className="space-y-1.5">
-                      <div className="flex items-center justify-between text-[11px] text-slate-300">
-                        <div className="flex items-center gap-2">
-                          <span
-                            className="h-3.5 w-3.5 rounded-full border border-white/40 shadow-sm"
-                            style={{ backgroundColor: p.hex }}
-                          />
-                          <span className="font-medium text-slate-100">{p.name}</span>
-                        </div>
-                        <div className="flex items-center gap-2">
-                          {p.key === 'water' ? (
-                            <span className="text-slate-400">
-                              물 추가: {waterAmount.toFixed(0)}%
-                            </span>
-                          ) : (
-                            <span className="text-slate-400">
-                              조정: {(factor * 100).toFixed(0)}%
-                            </span>
-                          )}
-                          <span className="text-slate-400">
-                            현재 비율: {formatPercent(current)}
-                          </span>
-                        </div>
-                      </div>
-                      <input
-                        type="range"
-                        min={p.key === 'water' ? 0 : 50}
-                        max={p.key === 'water' ? 100 : 150}
-                        value={p.key === 'water' ? Math.round(waterAmount) : Math.round(factor * 100)}
-                        onChange={(e) => {
-                          if (p.key === 'water') {
-                            setWaterAmount(Number(e.target.value));
-                            return;
-                          }
-                          onChangePigmentFactor(p.key, Number(e.target.value));
-                        }}
-                      />
-                    </div>
-                  );
-                })}
-              </div>
+            <div className="mt-1 pt-3 border-t border-slate-800/70">
+              <MixRatioEditor
+                parts={partsToShow}
+                waterAmount={waterAmount}
+                onChangePartWeight={onChangePartWeight}
+                onChangeWater={setWaterAmount}
+                resultHex={adjustedHex}
+                tone="dark"
+              />
             </div>
-            )}
           </>
         ) : (
           <p className="text-[11px] text-slate-500">
@@ -191,4 +146,3 @@ function MixingPreview({
 }
 
 export default MixingPreview;
-

@@ -6,7 +6,7 @@ function MixingAnimation({ parts, resultHex }) {
 
   useEffect(() => {
     setKey((k) => k + 1);
-  }, [parts?.map((p) => `${p?.key ?? p?.hex ?? ''}:${p?.ratio ?? 0}`).join(','), resultHex]);
+  }, [parts?.map((p) => p?.key ?? p?.hex ?? '').join(',')]);
 
   if (!parts?.length) {
     return (
@@ -39,7 +39,7 @@ function MixingAnimation({ parts, resultHex }) {
         <div
           key={`center-${key}`}
           className="absolute left-1/2 top-1/2 -translate-x-1/2 -translate-y-1/2 w-[44%] h-[44%] rounded-full opacity-0 animate-blend-in shadow-lg border-2 border-white/60"
-          style={{ backgroundColor: resultHex }}
+          style={{ backgroundColor: resultHex, transition: 'background-color 80ms linear' }}
         />
 
         {/* pigment droplets - start at perimeter, converge to center */}
@@ -63,7 +63,8 @@ function MixingAnimation({ parts, resultHex }) {
                 style={{
                   backgroundColor: p.hex,
                   width: `${size}px`,
-                  height: `${size}px`
+                  height: `${size}px`,
+                  transition: 'width 80ms linear, height 80ms linear, background-color 80ms linear'
                 }}
               />
             </div>

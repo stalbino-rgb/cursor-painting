@@ -5,6 +5,10 @@ import { getNearestColorInPalette } from '../utils/paletteMatching';
 import { normalizeHexColor } from '../utils/hexNormalize';
 import { getMixPoolForMode, getMixModeHint, MIX_MODE_OPTIONS, MAX_MIX_COLORS } from '../utils/mixPools';
 import MixingAnimation from './MixingAnimation';
+import MixRatioEditor from './MixRatioEditor';
+import { toRgb255 } from '../utils/colorFormats';
+import { capPigmentParts } from '../utils/mixing';
+import { useLiveMix } from '../hooks/useLiveMix';
 
 function formatPercent(v) {
   return `${(v * 100).toFixed(0)}%`;
@@ -51,7 +55,11 @@ function BrandPaletteModal({ mixMode, targetHex, open, onClose, onApplyNearestAs
     });
   }, [targetHex, pool]);
 
-  const parts = mix?.parts ?? [];
+  const solverParts = useMemo(() => capPigmentParts(mix?.parts ?? []), [mix]);
+  const live = useLiveMix(solverParts, `${mixMode}:${targetHex}`);
+  const parts = live.partsToShow?.length ? live.partsToShow : solverParts;
+  const resultHex = live.adjustedHex || mix?.approximateHex;
+  const resultRgb = toRgb255(resultHex || '#ffffff');
   const hasMix = parts.length > 0;
 
   const nearestLabel = useMemo(() => {
@@ -122,9 +130,15 @@ function BrandPaletteModal({ mixMode, targetHex, open, onClose, onApplyNearestAs
               {hasMix && (
                 <div className="rounded-2xl border border-slate-200 bg-slate-50/60 p-4 space-y-3">
                   <p className="text-[11px] font-semibold tracking-[0.15em] text-slate-500 uppercase">
-                    디지털 팔레트 · 필요 색상 비율 (최대 {MAX_MIX_COLORS}색)
+                    디지털 팔레트 · 안료 최대 {MAX_MIX_COLORS}색 · 물 별도
                   </p>
-                  <MixingAnimation parts={parts.map((p) => ({ ...p, key: p.key ?? p.hex }))} resultHex={mix.approximateHex} />
+                  <MixingAnimation parts={parts.map((p) => ({ ...p, key: p.key ?? p.hex }))} resultHex={resultHex} />
+                  <div className="rounded-xl bg-white border border-slate-200 px-3 py-2 font-mono text-[11px] text-slate-700 flex flex-wrap justify-between gap-2">
+                    <span>{String(resultHex || '').toUpperCase()}</span>
+                    <span>
+                      RGB {resultRgb.r} {resultRgb.g} {resultRgb.b}
+                    </span>
+                  </div>
                   <div className="space-y-2">
                     {parts
                       .slice()
@@ -143,6 +157,14 @@ function BrandPaletteModal({ mixMode, targetHex, open, onClose, onApplyNearestAs
                         </div>
                       ))}
                   </div>
+                  <MixRatioEditor
+                    parts={parts}
+                    waterAmount={live.waterAmount}
+                    onChangePartWeight={live.onChangePartWeight}
+                    onChangeWater={live.setWaterAmount}
+                    resultHex={resultHex}
+                    tone="light"
+                  />
                 </div>
               )}
 

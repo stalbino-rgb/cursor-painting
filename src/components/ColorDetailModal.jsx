@@ -1,6 +1,6 @@
 import React, { useMemo } from 'react';
 import { X } from 'lucide-react';
-import { calculateMixForHex } from '../utils/mixing';
+import { calculateMixForHex, capPigmentParts } from '../utils/mixing';
 import { calculateSparseMixPreferCaran } from '../utils/colorPickerUtils';
 import {
   detectColorMixMode,
@@ -10,6 +10,9 @@ import {
   MAX_MIX_COLORS
 } from '../utils/mixPools';
 import MixingAnimation from './MixingAnimation';
+import MixRatioEditor from './MixRatioEditor';
+import { useLiveMix } from '../hooks/useLiveMix';
+import { toRgb255 } from '../utils/colorFormats';
 
 function formatPercent(v) {
   return `${(v * 100).toFixed(0)}%`;
@@ -46,7 +49,7 @@ function ColorDetailModal({ color, onClose, onApplyToTarget }) {
       const base = calculateMixForHex(hex);
       return {
         approximateHex: base.approximateHex,
-        parts: (base.parts || []).slice(0, MAX_MIX_COLORS)
+        parts: capPigmentParts(base.parts || [])
       };
     } catch {
       try {
@@ -57,10 +60,15 @@ function ColorDetailModal({ color, onClose, onApplyToTarget }) {
     }
   }, [color, brandMode]);
 
+  const solverParts = useMemo(() => capPigmentParts(mix?.parts ?? []), [mix]);
+  const live = useLiveMix(solverParts, `${brandMode || 'base'}:${color?.hex || ''}`);
+
   if (!color) return null;
 
   const hex = safeHex(color.hex);
-  const parts = mix?.parts ?? [];
+  const parts = live.partsToShow?.length ? live.partsToShow : solverParts;
+  const resultHex = live.adjustedHex || mix?.approximateHex || hex;
+  const resultRgb = toRgb255(resultHex);
   const hasMix = parts.length > 0;
   const koName = color.koName;
 
@@ -119,7 +127,7 @@ function ColorDetailModal({ color, onClose, onApplyToTarget }) {
                   </p>
                   <MixingAnimation
                     parts={parts.map((p, i) => ({ ...p, key: p.key ?? `${p.hex}-${i}` }))}
-                    resultHex={mix.approximateHex || hex}
+                    resultHex={resultHex}
                   />
                 </div>
               )}
@@ -136,10 +144,11 @@ function ColorDetailModal({ color, onClose, onApplyToTarget }) {
                   </p>
                   <div
                     className="h-16 rounded-2xl border border-slate-200 shadow-inner"
-                    style={{ backgroundColor: mix?.approximateHex ?? hex }}
+                    style={{ backgroundColor: resultHex }}
                   />
-                  <p className="text-xs font-mono text-slate-600">
-                    {String(mix?.approximateHex ?? hex).toUpperCase()}
+                  <p className="text-xs font-mono text-slate-600">{String(resultHex).toUpperCase()}</p>
+                  <p className="text-[11px] font-mono text-slate-500">
+                    RGB {resultRgb.r} {resultRgb.g} {resultRgb.b}
                   </p>
                 </div>
               </div>
@@ -148,7 +157,8 @@ function ColorDetailModal({ color, onClose, onApplyToTarget }) {
                 <p className="text-[11px] text-slate-500">{getMixModeHint(brandMode)}</p>
               ) : (
                 <p className="text-[11px] text-slate-500">
-                  등록되지 않은 색은 워터·레드·옐로우·블루·화이트·블랙 기본색 조합으로 안내합니다.
+                  등록되지 않은 색은 워터·레드·옐로우·블루·화이트·블랙 기본색 조합으로 안내합니다. 물은
+                  안료 4색 한도에 넣지 않습니다.
                 </p>
               )}
 
@@ -176,6 +186,16 @@ function ColorDetailModal({ color, onClose, onApplyToTarget }) {
                         </span>
                       </div>
                     ))}
+                  </div>
+                  <div className="mt-4">
+                    <MixRatioEditor
+                      parts={parts}
+                      waterAmount={live.waterAmount}
+                      onChangePartWeight={live.onChangePartWeight}
+                      onChangeWater={live.setWaterAmount}
+                      resultHex={resultHex}
+                      tone="light"
+                    />
                   </div>
                 </div>
               ) : (

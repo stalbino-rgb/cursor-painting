@@ -213,9 +213,77 @@ export function mixFromPigmentRatios(ratioByKey) {
   };
 }
 
+export const MAX_MIX_PIGMENTS = 4;
+export const MAX_MIX_COLORS = MAX_MIX_PIGMENTS;
+export const WATER_PIGMENT = BASE_PIGMENTS.water;
+
+export function isWaterPart(part) {
+  const key = String(part?.key || '').toLowerCase();
+  const name = String(part?.name || '').toLowerCase();
+  return key === 'water' || name === 'water' || name === '워터';
+}
+
+/** Keep at most 4 pigments; water does not count toward that cap (total 5 with water). */
+export function capPigmentParts(parts, maxPigments = MAX_MIX_PIGMENTS) {
+  const list = Array.isArray(parts) ? parts : [];
+  const water = list.filter(isWaterPart).slice(0, 1);
+  const pigments = list.filter((p) => !isWaterPart(p)).slice(0, maxPigments);
+  return [...pigments, ...water];
+}
+
+/**
+ * Mix arbitrary palette parts (brand or base). Water is dilution only, not a 5th pigment slot.
+ * Each part uses `weight` (relative amount) or `ratio`.
+ */
+export function mixFromParts(parts) {
+  const list = capPigmentParts(parts).filter(Boolean);
+  const waterItem = list.find(isWaterPart);
+  const pigments = list.filter((p) => !isWaterPart(p));
+  const waterWeight = Math.max(0, Number(waterItem?.weight ?? waterItem?.ratio ?? 0) || 0);
+  const weighted = pigments.map((p) => ({
+    ...p,
+    w: Math.max(0, Number(p.weight ?? p.ratio ?? 0) || 0)
+  }));
+  const pigmentTotal = weighted.reduce((s, p) => s + p.w, 0);
+  const allTotal = pigmentTotal + waterWeight;
+
+  if (allTotal <= 0) {
+    return { hex: '#ffffff', rgb: [1, 1, 1], parts: [] };
+  }
+
+  const mixCmy = [0, 0, 0];
+  if (pigmentTotal > 0) {
+    for (const p of weighted) {
+      const cmy = rgbToCmy(hexToRgb(p.hex || '#ffffff'));
+      const w = p.w / pigmentTotal;
+      mixCmy[0] += w * cmy[0];
+      mixCmy[1] += w * cmy[1];
+      mixCmy[2] += w * cmy[2];
+    }
+  }
+  const baseRgb = pigmentTotal > 0 ? cmyToRgb(mixCmy) : [1, 1, 1];
+  const waterRatio = waterWeight / allTotal;
+  const rgb = applyWaterDilution(baseRgb, waterRatio);
+  const hex = rgbToHex(rgb);
+
+  const outParts = [
+    ...weighted
+      .filter((p) => p.w > 0)
+      .map((p) => ({
+        ...p,
+        ratio: p.w / allTotal,
+        weight: p.w
+      })),
+    ...(waterWeight > 0
+      ? [{ ...WATER_PIGMENT, ratio: waterWeight / allTotal, weight: waterWeight }]
+      : [])
+  ];
+
+  return { hex, rgb, parts: outParts };
+}
+
 // Mix from an arbitrary list of colors (e.g. library colors) using CMY-based NNLS.
 // Returns { approximateHex, parts: [{ name, hex, ratio }] }.
-export const MAX_MIX_COLORS = 4;
 
 export function calculateMixFromLibrary(targetHex, colorList, minRatio = 0.01, maxParts = MAX_MIX_COLORS) {
   const safeTarget = normalizeHexColor(targetHex);

@@ -163,7 +163,7 @@ function CustomColorInput({ targetHex, mixMode, onApply }) {
       <p className="mt-2 text-[11px] text-slate-500">
         {isBrandMixMode(mixMode)
           ? getMixModeHint(mixMode)
-          : '기본 조색은 Base Colors(워터·레드·옐로우·블루·화이트·블랙)에서 최대 4색으로 맞춥니다.'}
+          : '기본 조색은 Base Colors에서 안료 최대 4색으로 맞춥니다. 물은 한도에 넣지 않아 포함 시 총 5가지까지 가능합니다.'}
       </p>
 
       <div className="flex gap-2 mt-3">
