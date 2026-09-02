@@ -169,8 +169,9 @@ async function main() {
   const guide = wb.addWorksheet('사용법', { properties: { tabColor: { argb: 'FF0EA5E9' } } });
   guide.columns = [{ width: 92 }];
   [
-    'Color Library 물감 비교표',
+    'Color Library 물감 비교표 (수정 반영본)',
     '',
+    '앱 Color Library의 현재 값입니다. 쉴드·파버카스텔·카란다시·신한·미젤로·프리즈마 수정이 반영되어 있습니다.',
     '노란 칸만 입력하세요. 흰 칸은 앱에 들어 있는 현재 값입니다.',
     '',
     '1) 실제보유_Y/N : 해당 물감을 가지고 있으면 Y',
@@ -208,8 +209,16 @@ async function main() {
 
   const out = new URL('../Color-Library-비교표.xlsx', import.meta.url);
   const { fileURLToPath } = await import('node:url');
+  const fs = await import('node:fs/promises');
   const path = fileURLToPath(out);
   await wb.xlsx.writeFile(path);
+  const alt = 'f:\\color\\Color-Library-비교표.xlsx';
+  try {
+    await fs.copyFile(path, alt);
+    console.log(`copied ${alt}`);
+  } catch (e) {
+    console.log(`skip copy to f:\\color (${e.message})`);
+  }
   console.log(`wrote ${path} (${rows.length} colors)`);
 }
 
