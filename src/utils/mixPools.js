@@ -87,7 +87,9 @@ export function detectColorMixMode(color) {
 
 export function mixSwatchKey(color) {
   if (!color) return '';
+  if (color.mijelloNo != null) return `mijello-${color.mijelloNo}`;
   if (color.shinhanNo != null) return `shinhan-${color.shinhanNo}`;
+  if (color.shieldNo != null) return `shield-${color.shieldNo}`;
   if (color.id) return `id-${color.id}`;
   if (color.wheelKey) return `wheel-${color.wheelKey}`;
   if (color.key) return String(color.key);

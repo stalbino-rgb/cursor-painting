@@ -1,5 +1,7 @@
 import { hexToHsv } from './colorUtils';
 import { SHINHAN_NO_TO_HUE } from '../data/shinhanHueWheel';
+import { MIJELLO_NO_TO_HUE } from '../data/mijelloHueWheel';
+import { SHIELD_NO_TO_HUE } from '../data/shieldHueWheel';
 
 /**
  * 12-hue wheel categories, clockwise from 12 o'clock Y.
@@ -26,6 +28,12 @@ export function hexToHueWheelCat(hex) {
 export function colorToHueWheelCat(color) {
   if (color?.shinhanNo != null && SHINHAN_NO_TO_HUE[color.shinhanNo]) {
     return SHINHAN_NO_TO_HUE[color.shinhanNo];
+  }
+  if (color?.mijelloNo != null && MIJELLO_NO_TO_HUE[color.mijelloNo]) {
+    return MIJELLO_NO_TO_HUE[color.mijelloNo];
+  }
+  if (color?.shieldNo != null && SHIELD_NO_TO_HUE[color.shieldNo]) {
+    return SHIELD_NO_TO_HUE[color.shieldNo];
   }
   return hexToHueWheelCat(color?.hex);
 }
