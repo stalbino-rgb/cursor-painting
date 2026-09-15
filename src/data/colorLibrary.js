@@ -1,6 +1,6 @@
 /**
  * Color Library - generic pigments plus brand sets (Prisma 72, Shield 36, Mijello 34, Shinhan 32)
- * Format: { name, koName?, hex, brand?, prismaNo?|shieldNo?|mijelloNo?|shinhanNo? }
+ * Format: { name, koName?, hex, brand?, prismaNo?|shieldNo?|mijelloNo?|shinhanNo?, tone? }
  */
 import {
   PRISMA_PREMIER_72,

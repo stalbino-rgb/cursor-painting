@@ -349,3 +349,36 @@ export function calculateMixFromLibrary(targetHex, colorList, minRatio = 0.01, m
   return { approximateHex, parts };
 }
 
+/** Mix user-picked paints toward a target, keeping every selected color (max 4). */
+export function mixSelectedTowardTarget(targetHex, colorList) {
+  if (!colorList?.length) {
+    return { approximateHex: normalizeHexColor(targetHex), parts: [] };
+  }
+  const solved = calculateMixFromLibrary(targetHex, colorList, 0, colorList.length);
+  const byKey = Object.fromEntries((solved.parts || []).map((p) => [p.key, p]));
+  const parts = colorList.map((c, i) => {
+    const key = c.key || `lib-${i}`;
+    const hit = byKey[key];
+    return {
+      ...c,
+      key,
+      name: c.name || c.koName || key,
+      hex: c.hex,
+      no: c.no ?? c.shinhanNo ?? c.prismaNo ?? c.shieldNo ?? c.mijelloNo,
+      ratio: hit?.ratio ?? 0
+    };
+  });
+  const sum = parts.reduce((s, p) => s + p.ratio, 0);
+  if (sum < 1e-6) {
+    const eq = 1 / parts.length;
+    return {
+      approximateHex: solved.approximateHex || parts[0].hex,
+      parts: parts.map((p) => ({ ...p, ratio: eq }))
+    };
+  }
+  return {
+    approximateHex: solved.approximateHex,
+    parts: parts.map((p) => ({ ...p, ratio: p.ratio / sum }))
+  };
+}
+

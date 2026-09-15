@@ -1,4 +1,4 @@
-import React, { useMemo, useState } from 'react';
+import React, { useMemo } from 'react';
 import colorData from '../data/colorData.json';
 
 /** Approx. display hex for pigment names in the wheel. */
@@ -77,11 +77,9 @@ function shortName(name) {
 
 /**
  * Pure SVG color wheel: 12 hue sections × Outer / Mid / Inner rings.
- * Clicking a filled cell calls onSelectHex(hex).
+ * Clicking a filled cell toggles it as a mix pigment (max 4).
  */
-function ColorWheel({ onSelectHex }) {
-  const [active, setActive] = useState(null);
-
+function ColorWheel({ selectedKeys, onToggleMixColor }) {
   const size = 460;
   const cx = size / 2;
   const cy = size / 2;
@@ -109,8 +107,12 @@ function ColorWheel({ onSelectHex }) {
 
   const handleSelect = (sector, ringKey, num, color, hex) => {
     if (num == null || color == null) return;
-    setActive(`${sector.cat}-${ringKey}`);
-    onSelectHex?.(hex);
+    onToggleMixColor?.({
+      wheelKey: `${sector.cat}-${ringKey}-${num}`,
+      name: color,
+      hex,
+      no: num
+    });
   };
 
   return (
@@ -120,7 +122,7 @@ function ColorWheel({ onSelectHex }) {
           Color Wheel
         </p>
         <p className="text-[11px] text-slate-500 mt-1">
-          12섹션 · Outer / Mid / Inner · 클릭하면 목표색으로 적용됩니다.
+          12섹션 · Outer / Mid / Inner · 클릭하면 조색 물감으로 고릅니다 (최대 4색).
         </p>
       </div>
 
@@ -163,7 +165,8 @@ function ColorWheel({ onSelectHex }) {
                 const labelR = (layer.rInner + layer.rOuter) / 2;
                 const tp = polar(cx, cy, labelR, sector.midAngle);
                 const key = `${sector.cat}-${ringKey}`;
-                const isActive = active === key;
+                const pickKey = `wheel-${sector.cat}-${ringKey}-${cell?.num}`;
+                const isActive = selectedKeys?.has(pickKey);
 
                 // If num & color exist → fill with pigment color + show number
                 // Else → gray so the ring stays continuous
@@ -290,34 +293,6 @@ function ColorWheel({ onSelectHex }) {
               <li>Inner — 가장 안쪽 (작은 반지름)</li>
             </ul>
           </div>
-
-          {active &&
-            (() => {
-              const [cat, ring] = active.split('-');
-              const sector = sectors.find((s) => s.cat === cat);
-              const cell = sector?.[ring];
-              if (!sector || !cell || cell.num == null || cell.color == null) return null;
-              const hex = HEX_BY_NAME[cell.color] || '#94A3B8';
-              return (
-                <div className="rounded-xl border border-slate-200 bg-white/95 px-3 py-2.5 shadow-sm">
-                  <p className="text-[10px] uppercase tracking-wider text-slate-400">
-                    {sector.label} · {ring}
-                  </p>
-                  <div className="mt-1.5 flex items-center gap-2">
-                    <span
-                      className="h-8 w-8 rounded-lg border border-slate-200 shadow-inner shrink-0"
-                      style={{ backgroundColor: hex }}
-                    />
-                    <div>
-                      <p className="font-semibold text-slate-800">
-                        No.{cell.num} {cell.color}
-                      </p>
-                      <p className="font-mono text-slate-500">{hex}</p>
-                    </div>
-                  </div>
-                </div>
-              );
-            })()}
 
           <p className="text-slate-400">회색 칸은 JSON에서 num/color가 null인 구간입니다.</p>
         </div>

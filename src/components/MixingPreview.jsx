@@ -1,7 +1,8 @@
 import React from 'react';
-import { Info } from 'lucide-react';
+import { Info, X } from 'lucide-react';
 import MixRatioEditor from './MixRatioEditor';
 import { toRgb255 } from '../utils/colorFormats';
+import { MAX_MIX_COLORS } from '../utils/mixPools';
 
 function formatPercent(v) {
   return `${(v * 100).toFixed(0)}%`;
@@ -15,9 +16,13 @@ function MixingPreview({
   hasMix,
   waterAmount,
   setWaterAmount,
-  onChangePartWeight
+  onChangePartWeight,
+  selectedMixColors = [],
+  onClearMixPicks,
+  onRemoveMixPick
 }) {
   const rgb = toRgb255(adjustedHex);
+  const usingPicks = selectedMixColors.length > 0;
 
   return (
     <div key={containerKey} className="rounded-3xl bg-slate-950/95 text-slate-50 p-4 md:p-5 shadow-xl">
@@ -27,7 +32,9 @@ function MixingPreview({
             Mixing Preview
           </p>
           <p className="text-sm text-slate-300">
-            실제 조색 결과는 사용하는 물감에 따라 달라질 수 있어요.
+            {usingPicks
+              ? `고른 물감 ${selectedMixColors.length}/${MAX_MIX_COLORS}색으로 목표색을 조색합니다.`
+              : '실제 조색 결과는 사용하는 물감에 따라 달라질 수 있어요.'}
           </p>
         </div>
         <div className="flex items-center gap-2 text-[11px] text-slate-400">
@@ -35,6 +42,34 @@ function MixingPreview({
           안료 최대 4색 · 물 별도
         </div>
       </div>
+
+      {usingPicks ? (
+        <div className="mb-4 flex flex-wrap items-center gap-1.5">
+          {selectedMixColors.map((c) => (
+            <button
+              key={c.key}
+              type="button"
+              onClick={() => onRemoveMixPick?.(c.key)}
+              className="inline-flex items-center gap-1.5 rounded-full border border-slate-700 bg-slate-900/80 pl-1 pr-2 py-0.5 text-[11px] text-slate-200"
+              title="선택 해제"
+            >
+              <span
+                className="h-3.5 w-3.5 rounded-full border border-white/30"
+                style={{ backgroundColor: c.hex }}
+              />
+              <span className="max-w-[7rem] truncate">{c.koName || c.name}</span>
+              <X size={11} className="text-slate-400" />
+            </button>
+          ))}
+          <button
+            type="button"
+            onClick={onClearMixPicks}
+            className="text-[11px] text-slate-400 underline-offset-2 hover:text-slate-200 hover:underline"
+          >
+            선택 해제
+          </button>
+        </div>
+      ) : null}
 
       <div className="grid grid-cols-2 gap-4 mb-4">
         <div className="space-y-2">

@@ -1,7 +1,12 @@
 import React, { useCallback, useState } from 'react';
 import { PIGMENT_LIST, calculateSparseMixPreferCaran } from './utils/colorPickerUtils';
-import { calculateMixForHex, capPigmentParts } from './utils/mixing';
-import { getMixPoolForMode, MAX_MIX_COLORS, isBrandMixMode } from './utils/mixPools';
+import { calculateMixForHex, mixSelectedTowardTarget, capPigmentParts } from './utils/mixing';
+import {
+  getMixPoolForMode,
+  MAX_MIX_COLORS,
+  isBrandMixMode,
+  toggleMixSwatch
+} from './utils/mixPools';
 import { SWATCHES } from './data/colors';
 import MixingAnimation from './components/MixingAnimation';
 import ColorLibrary from './components/ColorLibrary';
@@ -11,7 +16,7 @@ import MixingPreview from './components/MixingPreview';
 import SaveRecipes from './components/SaveRecipes';
 import AppHeader from './components/AppHeader';
 import ColorPickerSection from './components/ColorPickerSection';
-import ColorWheel from './components/ColorWheel';
+import ColorWheelPanel from './components/ColorWheelPanel';
 import { normalizeHexColor } from './utils/hexNormalize';
 import { useLiveMix } from './hooks/useLiveMix';
 
@@ -25,6 +30,7 @@ function App() {
   const [recipeName, setRecipeName] = useState('');
   const [savedRecipes, setSavedRecipes] = useState([]);
   const [selectedLibraryColor, setSelectedLibraryColor] = useState(null);
+  const [selectedMixColors, setSelectedMixColors] = useState([]);
   console.log('App 렌더링 - 현재 색상:', targetHex);
 
   const handleColorUpdate = useCallback(
@@ -40,14 +46,21 @@ function App() {
     [mixMode]
   );
 
+  const handleToggleMixColor = useCallback((color) => {
+    if (!color?.hex) return;
+    setSelectedMixColors((prev) => toggleMixSwatch(prev, color));
+  }, []);
+
   const mixPool = isBrandMixMode(mixMode) ? getMixPoolForMode(mixMode) : PIGMENT_LIST.filter((p) => p.key !== 'water');
-  const sparseMix = isBrandMixMode(mixMode)
-    ? calculateSparseMixPreferCaran(targetHex, mixPool, {
-        maxK: MAX_MIX_COLORS,
-        candidateLimit: 20,
-        minRatio: 0.04
-      })
-    : calculateMixForHex(targetHex);
+  const sparseMix = selectedMixColors.length
+    ? mixSelectedTowardTarget(targetHex, selectedMixColors)
+    : isBrandMixMode(mixMode)
+      ? calculateSparseMixPreferCaran(targetHex, mixPool, {
+          maxK: MAX_MIX_COLORS,
+          candidateLimit: 20,
+          minRatio: 0.04
+        })
+      : calculateMixForHex(targetHex);
   const mixParts = capPigmentParts(sparseMix.parts || []);
   const mixPartSum = mixParts.reduce((s, p) => s + (p.ratio || 0), 0) || 1;
   const baseMix = {
@@ -60,7 +73,8 @@ function App() {
     }))
   };
 
-  const live = useLiveMix(baseMix.parts, `${mixMode}:${targetHex}`);
+  const mixPickKey = selectedMixColors.map((c) => c.key).join(',');
+  const live = useLiveMix(baseMix.parts, `${mixMode}:${targetHex}:${mixPickKey}`);
   const partsToShow = live.partsToShow?.length ? live.partsToShow : baseMix.parts;
   const adjustedHex = live.adjustedHex || baseMix.approximateHex;
   const hasMix = partsToShow && partsToShow.length > 0;
@@ -114,7 +128,7 @@ function App() {
               <MixingAnimation parts={partsToShow} resultHex={adjustedHex} />
 
               <MixingPreview
-                containerKey={`${targetHex}-${mixMode}`}
+                containerKey={`${targetHex}-${mixMode}-${mixPickKey}`}
                 baseMix={baseMix}
                 adjustedHex={adjustedHex}
                 partsToShow={partsToShow}
@@ -122,6 +136,11 @@ function App() {
                 waterAmount={live.waterAmount}
                 setWaterAmount={live.setWaterAmount}
                 onChangePartWeight={live.onChangePartWeight}
+                selectedMixColors={selectedMixColors}
+                onClearMixPicks={() => setSelectedMixColors([])}
+                onRemoveMixPick={(key) =>
+                  setSelectedMixColors((prev) => prev.filter((c) => c.key !== key))
+                }
               />
 
               <p className="text-[11px] text-slate-500 leading-relaxed">
@@ -140,6 +159,13 @@ function App() {
           </section>
 
           <section>
+            <ColorWheelPanel
+              selectedMixColors={selectedMixColors}
+              onToggleMixColor={handleToggleMixColor}
+            />
+          </section>
+
+          <section>
             <ColorLibrary onColorSelect={setSelectedLibraryColor} />
           </section>
 
@@ -150,10 +176,6 @@ function App() {
             onSaveRecipe={handleSaveRecipe}
             onApplyRecipeTarget={handleColorUpdate}
           />
-
-          <section>
-            <ColorWheel onSelectHex={handleColorUpdate} />
-          </section>
         </div>
       </main>
 

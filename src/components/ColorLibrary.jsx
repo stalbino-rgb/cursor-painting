@@ -4,6 +4,8 @@ import { COLOR_LIBRARY } from '../data/colorLibrary';
 import { CARAN_NEOCOLOR_II_30, FABER_CASTELL_ALBRECHT_DURER_72 } from '../data/colorData';
 import { sortBySimilarColor, sortByAlpha } from '../utils/colorUtils';
 import { hexToApproxMunsell, formatMunsellNotation } from '../utils/munsell';
+import { SHINHAN_HUE_ORDER } from '../data/shinhanHueWheel';
+import { colorToHueWheelCat } from '../utils/hueWheel';
 
 const SORT_OPTIONS = [
   { id: 'similar', label: '비슷한 색상순' },
@@ -45,7 +47,7 @@ function ColorLibrary({ onColorSelect }) {
   const listRef = useRef(null);
   const rowRefs = useRef({});
   const searchTimeoutRef = useRef(null);
-  const [munsellFilter, setMunsellFilter] = useState('all');
+  const [hueFilter, setHueFilter] = useState('all');
   const [showOwnedSetsOnly, setShowOwnedSetsOnly] = useState(false);
   const [brandFilter, setBrandFilter] = useState('all');
 
@@ -88,14 +90,8 @@ function ColorLibrary({ onColorSelect }) {
     if (brandFilter === 'shield') list = list.filter((c) => c.shieldNo != null);
     if (brandFilter === 'mijello') list = list.filter((c) => c.mijelloNo != null);
     if (brandFilter === 'shinhan') list = list.filter((c) => c.shinhanNo != null);
-    if (munsellFilter !== 'all') {
-      list = list.filter((c) => {
-        const m = hexToApproxMunsell(c.hex);
-        if (!m) return false;
-        // Avoid showing broad neutral/gray tones in hue filters.
-        if (m.chroma < 2) return false;
-        return m.major === munsellFilter;
-      });
+    if (hueFilter !== 'all') {
+      list = list.filter((c) => colorToHueWheelCat(c) === hueFilter);
     }
     if (q) {
       const match = (c) => {
@@ -109,13 +105,17 @@ function ColorLibrary({ onColorSelect }) {
           .filter((n) => n != null)
           .map(String)
           .join(' ');
+        const tone = (c.tone || '').toLowerCase();
+        const hueCat = (colorToHueWheelCat(c) || '').toLowerCase();
         return (
           en.includes(q) ||
           ko.includes(q) ||
           brand.includes(q) ||
           h.includes(q) ||
           m.includes(q) ||
-          nos.includes(q)
+          nos.includes(q) ||
+          tone.includes(q) ||
+          hueCat === q
         );
       };
       const exact = list.filter((c) => (c.name || '').toLowerCase() === q || (c.koName || '').toLowerCase() === q);
@@ -165,7 +165,7 @@ function ColorLibrary({ onColorSelect }) {
       (c) => c.prismaNo == null && c.shieldNo == null && c.mijelloNo == null && c.shinhanNo == null
     );
     return [...numbered, ...rest];
-  }, [searchQuery, sortBy, munsellFilter, mergedLibrary, showOwnedSetsOnly, brandFilter]);
+  }, [searchQuery, sortBy, hueFilter, mergedLibrary, showOwnedSetsOnly, brandFilter]);
 
   const displayList = useMemo(() => {
     if (externalResults.length > 0) return externalResults;
@@ -308,21 +308,16 @@ function ColorLibrary({ onColorSelect }) {
           <div className="flex items-center gap-2">
             <span className="text-[11px] text-slate-500">필터(H):</span>
             <select
-              value={munsellFilter}
-              onChange={(e) => setMunsellFilter(e.target.value)}
+              value={hueFilter}
+              onChange={(e) => setHueFilter(e.target.value)}
               className="px-2 py-1.5 rounded-lg border border-slate-200 bg-white text-xs font-medium text-slate-700"
             >
               <option value="all">전체</option>
-              <option value="R">R</option>
-              <option value="YR">YR</option>
-              <option value="Y">Y</option>
-              <option value="GY">GY</option>
-              <option value="G">G</option>
-              <option value="BG">BG</option>
-              <option value="B">B</option>
-              <option value="PB">PB</option>
-              <option value="P">P</option>
-              <option value="RP">RP</option>
+              {SHINHAN_HUE_ORDER.map((cat) => (
+                <option key={cat} value={cat}>
+                  {cat}
+                </option>
+              ))}
             </select>
           </div>
 
@@ -413,7 +408,7 @@ function ColorLibrary({ onColorSelect }) {
                   }}
                   onClick={() => onColorSelect?.(color)}
                   className={`group relative overflow-visible flex flex-col items-center justify-center p-2 rounded-lg hover:bg-slate-50/90 active:bg-slate-100/90 text-left transition-colors ${tileClass}`}
-                  title={`${color.koName ? `${color.name} / ${color.koName}` : color.name} (${(normalizeHex(color.hex) || color.hex).toUpperCase()})`}
+                  title={`${color.koName ? `${color.name} / ${color.koName}` : color.name} (${(normalizeHex(color.hex) || color.hex).toUpperCase()})${color.tone === 'cool' || color.tone === 'warm' ? ` · ${color.tone}` : ''}`}
                 >
                   <div className="relative overflow-visible pt-1 pr-1">
                     <div
@@ -456,6 +451,15 @@ function ColorLibrary({ onColorSelect }) {
                   <code className="mt-1 text-[9px] font-mono text-slate-500 group-hover:text-slate-600">
                     {(normalizeHex(color.hex) || color.hex).slice(0, 7)}
                   </code>
+                  {(color.tone === 'cool' || color.tone === 'warm') && (
+                    <span
+                      className={`mt-0.5 rounded-full px-1.5 py-0.5 text-[8px] font-semibold leading-none ${
+                        color.tone === 'cool' ? 'bg-sky-100 text-sky-800' : 'bg-amber-100 text-amber-800'
+                      }`}
+                    >
+                      {color.tone}
+                    </span>
+                  )}
                   {brandFilter !== 'all' && (
                     <span className="mt-0.5 w-full text-center text-[9px] leading-tight text-slate-600 line-clamp-2">
                       {color.koName || color.name}

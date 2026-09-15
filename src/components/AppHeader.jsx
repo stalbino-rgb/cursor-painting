@@ -10,7 +10,7 @@ function AppHeader() {
           COLOR MIXING GUIDE
         </span>
         <h1 className="text-2xl md:text-3xl font-semibold tracking-tight text-slate-900">
-          칼러 조색 가이드
+          Palette & Colorwheel
         </h1>
         <p className="text-sm text-slate-500 leading-relaxed max-w-xl">
           목표 색을 선택하면, 기본 5색(

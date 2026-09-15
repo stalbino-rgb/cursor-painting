@@ -1,4 +1,4 @@
-const CACHE_NAME = 'acrylic-mix-guide-v1';
+const CACHE_NAME = 'palette-colorwheel-v2';
 const CORE_ASSETS = [
   '/',
   '/index.html',

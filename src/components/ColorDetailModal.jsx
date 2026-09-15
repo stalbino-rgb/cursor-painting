@@ -102,6 +102,15 @@ function ColorDetailModal({ color, onClose, onApplyToTarget }) {
                     {color.name || 'Color'}
                   </h2>
                   {koName ? <p className="text-sm text-slate-500 truncate">{koName}</p> : null}
+                  {(color.tone === 'cool' || color.tone === 'warm') && (
+                    <span
+                      className={`mt-1 inline-flex rounded-full px-2 py-0.5 text-[11px] font-semibold ${
+                        color.tone === 'cool' ? 'bg-sky-100 text-sky-800' : 'bg-amber-100 text-amber-800'
+                      }`}
+                    >
+                      {color.tone} tone
+                    </span>
+                  )}
                   <p className="text-sm font-mono text-slate-500">{hex.toUpperCase()}</p>
                   <p className="text-[12px] font-mono text-slate-500">
                     RGB {rgb.r} {rgb.g} {rgb.b}

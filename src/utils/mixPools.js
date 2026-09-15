@@ -6,6 +6,7 @@ import {
   MIJELLO_MISSION_GOLD_34,
   SHINHAN_SWC_32
 } from '../data/brandSetColors';
+import { normalizeHexColor } from './hexNormalize';
 
 export const MAX_MIX_COLORS = 4;
 
@@ -82,6 +83,37 @@ export function detectColorMixMode(color) {
     return 'faber';
   }
   return null;
+}
+
+export function mixSwatchKey(color) {
+  if (!color) return '';
+  if (color.shinhanNo != null) return `shinhan-${color.shinhanNo}`;
+  if (color.id) return `id-${color.id}`;
+  if (color.wheelKey) return `wheel-${color.wheelKey}`;
+  if (color.key) return String(color.key);
+  return `hex-${normalizeHexColor(color.hex)}`;
+}
+
+export function toMixSwatch(color) {
+  const hex = normalizeHexColor(color.hex);
+  const name = String(color.koName || color.name || hex).trim();
+  return {
+    ...color,
+    hex,
+    name,
+    koName: color.koName || name,
+    key: mixSwatchKey(color)
+  };
+}
+
+export function toggleMixSwatch(list, color, max = MAX_MIX_COLORS) {
+  const swatch = toMixSwatch(color);
+  if (!swatch.key || swatch.koName === '예비') return list;
+  if (list.some((c) => c.key === swatch.key)) {
+    return list.filter((c) => c.key !== swatch.key);
+  }
+  if (list.length >= max) return list;
+  return [...list, swatch];
 }
 
 export function getMixModeHint(mixMode) {

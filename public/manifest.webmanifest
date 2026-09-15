@@ -1,7 +1,7 @@
 {
-  "name": "칼러 조색 가이드",
-  "short_name": "조색 가이드",
-  "description": "색상 선택, 조색 비율 계산, 라이브러리 기반 믹싱 시뮬레이션 앱",
+  "name": "Palette & Colorwheel",
+  "short_name": "Palette & Colorwheel",
+  "description": "Palette and color wheel mixing guide",
   "start_url": "/",
   "display": "standalone",
   "background_color": "#F9F9F9",
