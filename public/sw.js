@@ -1,16 +1,18 @@
-const CACHE_NAME = 'palette-colorwheel-v2';
+const CACHE_NAME = 'palette-colorwheel-v3';
 const CORE_ASSETS = [
-  '/',
-  '/index.html',
-  '/manifest.webmanifest',
-  '/pwa-icon.svg',
-  '/apple-touch-icon.svg',
-  '/offline.html'
+  './',
+  './index.html',
+  './manifest.webmanifest',
+  './pwa-icon.svg',
+  './apple-touch-icon.svg',
+  './offline.html'
 ];
 
 self.addEventListener('install', (event) => {
   event.waitUntil(
-    caches.open(CACHE_NAME).then((cache) => cache.addAll(CORE_ASSETS))
+    caches.open(CACHE_NAME).then((cache) =>
+      cache.addAll(CORE_ASSETS.map((path) => new URL(path, self.registration.scope).href))
+    )
   );
   self.skipWaiting();
 });
