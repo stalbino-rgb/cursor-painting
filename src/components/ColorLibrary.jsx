@@ -25,6 +25,14 @@ function normalizeHex(h) {
   return s.length === 6 ? `#${s}` : s.length === 3 ? `#${s[0]}${s[0]}${s[1]}${s[1]}${s[2]}${s[2]}` : '';
 }
 
+/** Prefer the official English name when it is Latin text; otherwise Korean. */
+function librarySwatchName(color) {
+  const en = String(color?.name || '').trim();
+  const ko = String(color?.koName || '').trim();
+  if (en && /[A-Za-z]/.test(en)) return en;
+  return ko || en;
+}
+
 async function fetchColorFromAPI(name) {
   if (!name?.trim()) return [];
   const q = encodeURIComponent(name.trim());
@@ -399,6 +407,11 @@ function ColorLibrary({ onColorSelect }) {
                   const isSet30 = Boolean(color.isSet30);
                   const tileClass =
                     (isFaber && !isSet72) || (isCaran && color.isSet30 === false) ? 'opacity-55' : '';
+                  const swatchName = librarySwatchName(color);
+                  const titleName =
+                    color.koName && color.name && color.koName !== color.name
+                      ? `${color.name} / ${color.koName}`
+                      : swatchName;
                   return (
                 <button
                   key={`${color.source || ''}-${color.hex}-${color.name}-${i}`}
@@ -408,7 +421,7 @@ function ColorLibrary({ onColorSelect }) {
                   }}
                   onClick={() => onColorSelect?.(color)}
                   className={`group relative overflow-visible flex flex-col items-center justify-center p-2 rounded-lg hover:bg-slate-50/90 active:bg-slate-100/90 text-left transition-colors ${tileClass}`}
-                  title={`${color.koName ? `${color.name} / ${color.koName}` : color.name} (${(normalizeHex(color.hex) || color.hex).toUpperCase()})${color.tone === 'cool' || color.tone === 'warm' ? ` · ${color.tone}` : ''}`}
+                  title={`${titleName} (${(normalizeHex(color.hex) || color.hex).toUpperCase()})${color.tone === 'cool' || color.tone === 'warm' ? ` · ${color.tone}` : ''}`}
                 >
                   <div className="relative overflow-visible pt-1 pr-1">
                     <div
@@ -460,11 +473,11 @@ function ColorLibrary({ onColorSelect }) {
                       {color.tone}
                     </span>
                   )}
-                  {brandFilter !== 'all' && (
+                  {swatchName ? (
                     <span className="mt-0.5 w-full text-center text-[9px] leading-tight text-slate-600 line-clamp-2">
-                      {color.koName || color.name}
+                      {swatchName}
                     </span>
-                  )}
+                  ) : null}
                 </button>
                   );
                 })()
